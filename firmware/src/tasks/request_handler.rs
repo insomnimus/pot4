@@ -18,7 +18,7 @@ use crate::{
 	storage::Storage,
 };
 
-const OK: &[u8] = b"OK";
+const OK: &[u8] = b"ok";
 
 /// Reads Requests, sends Responses.
 #[embassy_executor::task]

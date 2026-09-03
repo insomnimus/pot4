@@ -102,7 +102,7 @@ impl Command {
 						saved = true;
 						None
 					} else {
-						None
+						Some(GetConfigKey::parse(args)?)
 					}
 				};
 
