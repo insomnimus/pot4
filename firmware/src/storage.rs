@@ -20,6 +20,13 @@ use serde::{
 	Serialize,
 };
 
+const _: () = {
+	// Flash page offset must be aligned to the start of a flash page
+	assert!(PAGE_OFFSET.is_multiple_of(PAGE_SIZE as u32));
+	// HEADER_SIZE (8 bytes) must be a multiple of WRITE_SIZE (e.g. 2, 4, or 8 bytes)
+	assert!(HEADER_SIZE.is_multiple_of(WRITE_SIZE));
+};
+
 const MAGIC: u32 = 0x504F_5434; // "POT4" in big endian
 const FORMAT_VERSION: u16 = 1;
 
@@ -39,7 +46,6 @@ pub enum Error {
 	Postcard,
 	InvalidRecord,
 	RecordTooLarge,
-	FlashFull,
 }
 
 impl defmt::Format for Error {
@@ -47,11 +53,10 @@ impl defmt::Format for Error {
 		use Error::*;
 
 		match self {
-			Flash(e) => e.format(f),
+			Flash(e) => defmt::write!(f, "flash error: {}", e),
 			Postcard => defmt::write!(f, "PostCard de/serialization error"),
 			InvalidRecord => defmt::write!(f, "Invalid record"),
 			RecordTooLarge => defmt::write!(f, "Record too large"),
-			FlashFull => defmt::write!(f, "Storage is full"),
 		}
 	}
 }
@@ -87,12 +92,16 @@ where
 			_marker: PhantomData,
 		};
 
-		storage.write_offset = match storage.find_write_offset() {
-			Ok(n) => n,
-			Err(e) => {
-				defmt::panic!("Storage: failed to locate the write offset: {}", e);
+		match storage.find_write_offset() {
+			Ok(n) => storage.write_offset = n,
+			Err(_) => {
+				// Page is corrupted or in an invalid state; erase and start fresh.
+				let _ = storage
+					.flash
+					.blocking_erase(PAGE_OFFSET, PAGE_OFFSET + PAGE_SIZE as u32);
+				storage.write_offset = 0;
 			}
-		};
+		}
 
 		storage
 	}
@@ -142,17 +151,24 @@ where
 	}
 
 	pub fn save(&mut self, val: &T) -> Result<(), Error> {
-		// Serialize into the scratch buffer. The buffer contains both the postcard data and its CRC.
-		let encoded = postcard::to_slice_crc32(val, &mut self.buf, CRC.digest())?;
-
+		// Serialize into the scratch buffer after leaving space for the header.
+		let encoded = postcard::to_slice_crc32(val, &mut self.buf[HEADER_SIZE..], CRC.digest())?;
 		let length = encoded.len();
 		if length < CRC_SIZE {
 			return Err(Error::InvalidRecord);
 		}
+		// Now we know the length; write the haeder to the scratch space.
+		let magic_bytes = MAGIC.to_le_bytes();
+		let version_bytes = FORMAT_VERSION.to_le_bytes();
+		let length_bytes = (length as u16).to_le_bytes();
+
+		self.buf[0..4].copy_from_slice(&magic_bytes);
+		self.buf[4..6].copy_from_slice(&version_bytes);
+		self.buf[6..8].copy_from_slice(&length_bytes);
 
 		let record_size = aligned_record_size(length);
 		if record_size > PAGE_SIZE {
-			return Err(Error::FlashFull);
+			return Err(Error::RecordTooLarge);
 		}
 
 		// If there isn't enough room, erase the page and start over.
@@ -163,27 +179,14 @@ where
 			self.write_offset = 0;
 		}
 
-		let payload_offset = self.write_offset + HEADER_SIZE;
-
-		// The flash programming operation requires WRITE_SIZE writes.
-		// Padding bytes are irrelevant and remain erased (0xFF).
-		//
 		// Add padding.
-		let padded_length = align_up(length, WRITE_SIZE);
-		for byte in &mut self.buf[length..padded_length] {
-			*byte = 0xFF;
-		}
+		let unpadded_total = HEADER_SIZE + length;
 
-		self.write_from_scratch(payload_offset, padded_length)?;
+		debug_assert_eq!(self.write_offset % WRITE_SIZE, 0, "write_offset unaligned");
+		self.buf[unpadded_total..record_size].fill(0xff);
 
-		// Write the header only after the payload has been completely written. This acts as the record's commit marker.
-		let mut header = [0xFF; HEADER_SIZE];
+		self.write_from_scratch(self.write_offset, record_size)?;
 
-		header[0..4].copy_from_slice(&MAGIC.to_le_bytes());
-		header[4..6].copy_from_slice(&FORMAT_VERSION.to_le_bytes());
-		header[6..8].copy_from_slice(&(length as u16).to_le_bytes());
-
-		self.write(self.write_offset, &header)?;
 		self.write_offset += record_size;
 
 		Ok(())
@@ -215,7 +218,7 @@ where
 				return Ok(offset);
 			}
 
-			offset += HEADER_SIZE + record_size;
+			offset += record_size; // Removed double-counted HEADER_SIZE
 		}
 
 		Ok(PAGE_SIZE)
@@ -237,7 +240,7 @@ where
 		Ok(())
 	}
 
-	fn write(&mut self, offset: usize, data: &[u8]) -> Result<(), Error> {
+	fn _write(&mut self, offset: usize, data: &[u8]) -> Result<(), Error> {
 		assert_eq!(offset % WRITE_SIZE, 0);
 		assert_eq!(data.len() % WRITE_SIZE, 0);
 
@@ -267,6 +270,7 @@ fn parse_header(header: &[u8; HEADER_SIZE]) -> (u32, u16, u16) {
 }
 
 const fn align_up(value: usize, alignment: usize) -> usize {
+	debug_assert!(alignment.is_power_of_two());
 	(value + alignment - 1) & !(alignment - 1)
 }
 
