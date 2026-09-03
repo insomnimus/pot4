@@ -138,6 +138,13 @@ async fn main(spawner: Spawner) {
 	usb_config.max_power = 100;
 	usb_config.max_packet_size_0 = 64;
 
+	usb_config.device_class = 0xEF; // Miscellaneous Device Class
+	usb_config.device_sub_class = 0x02; // Common Class
+	usb_config.device_protocol = 0x01; // Interface Association Descriptor
+
+	// Disable automatic IAD generation for builder.function() calls
+	usb_config.composite_with_iads = false;
+
 	let driver = usb::Driver::new(p.USB, Irqs, p.PA12, p.PA11);
 
 	let mut builder = Builder::new(
@@ -153,8 +160,8 @@ async fn main(spawner: Spawner) {
 
 	let midi = MidiClass::new(
 		&mut builder,
-		0,  // Input count
-		1,  // Output count
+		1,  // Input count
+		0,  // Output count
 		64, // Max packet size
 	);
 	let (midi_sender, _) = midi.split();

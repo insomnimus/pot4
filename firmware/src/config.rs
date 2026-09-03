@@ -10,6 +10,7 @@ use arrayvec::{
 	ArrayString,
 	ArrayVec,
 };
+use defmt::Format;
 use serde::{
 	Deserialize,
 	Serialize,
@@ -27,7 +28,7 @@ const MAX_SERIALIZED_CONFIG_SIZE: usize = "pot4.chan=15;pot4.cc=127;".len() * 4 
 const MAX_SERIALIZED_PRESET_CONFIG_SIZE: usize =
 	"pot4.chan=15;pot4.cc=127;".len() * 4 + ";name=".len() + 32;
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, Format)]
 pub struct PotConfig {
 	#[serde(rename = "ch")]
 	pub channel: u8,
@@ -44,10 +45,10 @@ impl PotConfig {
 
 	pub fn create_cc_packet(self, value: u8) -> [u8; 4] {
 		[
-			0x0b,                // USB-MIDI CIN: Control Change
-			self.channel | 0x0b, // channel | Code Index Number 0xB,
-			self.cc,             // CC Number
-			value,               // CC value
+			0x0b,                         // Header: Cable 0 + CIN 0x0B (Control Change)
+			0xb0 | (self.channel & 0x0f), // Status Byte: 0xB0 (Control Change) + Channel (0-15)
+			self.cc & 0x7f,               // CC Number (0-127)
+			value & 0x7f,                 // CC Value (0-127)
 		]
 	}
 }

@@ -79,6 +79,7 @@ pub async fn adc_task(
 			pot_samples.into_iter().zip(pots.iter_mut().zip(pot_config))
 		{
 			if let Some(value) = pot.update(sample as i32) {
+				// info!("cc {}: {}", pot_config.cc, value);
 				let packet = pot_config.create_cc_packet(value);
 				if let Err(e) = midi_sender.write_packet(&packet).await {
 					match e {
