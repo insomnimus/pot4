@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="stylesheet" href="/src/styles.css" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Insomnia Pot4 Configurator</title>
+		<script type="module" src="/src/main.ts" defer></script>
+	</head>
+
+	<body>
+	<main>
+		<h1>Pot4 Configuration</h1>
+
+	<div id="connection-status" role="status" aria-live="polite" aria-atomic="true">
+		Connecting to Pot4 MIDI CC Controller...
+	</div>
+
+	<button id="reconnect" type="button">Reconnect</button>
+	<button id="reset" type="button">Reset</button>
+
+	<div id="config-status" role="status" aria-live="polite" aria-atomic="true"></div>
+
+	<fieldset>
+		<legend>Preset</legend>
+
+		<label>
+			<input
+				type="radio"
+				name="preset"
+				value="0"
+				checked
+			/>
+			<span>1. Unnamed</span>
+		</label>
+
+		<label>
+			<input
+				type="radio"
+				name="preset"
+				value="1"
+			/>
+			<span>2. Unnamed</span>
+		</label>
+
+		<label>
+			<input
+				type="radio"
+				name="preset"
+				value="2"
+			/>
+			<span>3. Unnamed</span>
+		</label>
+
+		<label>
+			<input
+				type="radio"
+				name="preset"
+				value="3"
+			/>
+			<span>4. Unnamed</span>
+		</label>
+	</fieldset>
+
+	<section id="controls" aria-labelledby="preset-heading">
+		<h2 id="preset-heading">Preset 1</h2>
+
+		<label for="preset-name">Preset name</label>
+		<input
+			id="preset-name"
+			type="text"
+			maxlength="32"
+		>
+
+		<button
+			id="use-preset"
+			type="button"
+			title="Use this preset's values for the active live configuration"
+		>
+			Use
+		</button>
+
+		<table>
+			<caption>Pot configuration</caption>
+			<thead>
+				<tr>
+					<th scope="col">Pot</th>
+					<th scope="col">CC</th>
+					<th scope="col">Channel</th>
+				</tr>
+			</thead>
+
+			<tbody id="pot-config">
+				<tr data-pot="0">
+					<th scope="row">1</th>
+					<td>
+						<input
+							data-field="cc"
+							type="number"
+							min="1"
+							max="128"
+							step="1"
+						>
+					</td>
+					<td>
+						<input
+							data-field="channel"
+							type="number"
+							min="1"
+							max="16"
+							step="1"
+						>
+					</td>
+				</tr>
+
+				<tr data-pot="1">
+					<th scope="row">2</th>
+					<td>
+						<input
+							data-field="cc"
+							type="number"
+							min="1"
+							max="128"
+							step="1"
+						>
+					</td>
+					<td>
+						<input
+							data-field="channel"
+							type="number"
+							min="1"
+							max="16"
+							step="1"
+						>
+					</td>
+				</tr>
+
+				<tr data-pot="2">
+					<th scope="row">3</th>
+					<td>
+						<input
+							data-field="cc"
+							type="number"
+							min="1"
+							max="128"
+							step="1"
+						>
+					</td>
+					<td>
+						<input
+							data-field="channel"
+							type="number"
+							min="1"
+							max="16"
+							step="1"
+						>
+					</td>
+				</tr>
+
+				<tr data-pot="3">
+					<th scope="row">4</th>
+					<td>
+						<input
+							data-field="cc"
+							type="number"
+							min="1"
+							max="128"
+							step="1"
+						>
+					</td>
+					<td>
+						<input
+							data-field="channel"
+							type="number"
+							min="1"
+							max="16"
+							step="1"
+						>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<button id="save" type="button" disabled>
+			Save
+		</button>
+		<span>Persist current configuration</span>
+	</section>
+
+</main>
+</body>
+
+</html>

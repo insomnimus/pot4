@@ -1,0 +1,8 @@
+[default.probe]
+protocol = "Swd"
+
+[default.general]
+chip = "STM32F303VC"
+
+[default.rtt]
+enabled = true

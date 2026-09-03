@@ -1,0 +1,5 @@
+[toolchain]
+# channel = "1.97"
+channel = "nightly-2026-07-25"
+components = [ "rust-src", "rustfmt", "llvm-tools", "rust-analyzer" ]
+targets = ["thumbv7em-none-eabi"]
