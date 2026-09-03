@@ -80,7 +80,7 @@ impl Command {
 		let text = str::from_utf8(data).map_err(|_| ParseError::InvalidUtf8)?;
 		let (cmd, args) = text.split_once(' ').unwrap_or((text, ""));
 		let cmd = cmd.trim();
-		let mut args = args.trim();
+		let args = args.trim();
 
 		let cmd = match cmd {
 			// These commands have no arguments.
@@ -95,12 +95,15 @@ impl Command {
 				let key = if args.is_empty() {
 					None
 				} else {
-					if args.starts_with("saved.") {
+					if let Some(args) = args.strip_prefix("saved.") {
 						saved = true;
-						args = &args["saved.".len()..];
-					};
-
-					Some(GetConfigKey::parse(args)?)
+						Some(GetConfigKey::parse(args)?)
+					} else if args == "saved" {
+						saved = true;
+						None
+					} else {
+						None
+					}
 				};
 
 				Self::GetConfig { saved, key }
