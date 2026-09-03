@@ -111,6 +111,23 @@ fn save_changes(state: tauri::State<'_, AppState>) -> Result<(), String> {
 		.command_ok("config.save")
 }
 
+#[tauri::command]
+fn fetch_active_preset_index(state: tauri::State<'_, AppState>) -> Result<u8, String> {
+	let resp = state
+		.usb
+		.lock()
+		.unwrap()
+		.as_mut()
+		.ok_or_else(|| String::from("Not connected"))?
+		.command("config.get preset")
+		.map_err(|e| e.to_string())?;
+
+	resp.strip_prefix("preset=")
+		.ok_or_else(|| format!("unexpected response: {resp}"))?
+		.parse::<u8>()
+		.map_err(|_| format!("device returned a non-numeric preset index: {resp}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
 	tauri::Builder::default()
@@ -129,6 +146,7 @@ pub fn run() {
 			change_setting,
 			reset_config,
 			save_changes,
+			fetch_active_preset_index,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");

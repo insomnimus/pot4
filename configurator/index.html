@@ -9,7 +9,15 @@
 	</head>
 
 	<body>
-	<main>
+		<div 
+    id="sr-announcer" 
+    class="sr-only" 
+    role="status" 
+    aria-live="assertive" 
+    aria-atomic="true"
+></div>
+
+<main>
 		<h1>Pot4 Configuration</h1>
 
 	<div id="connection-status" role="status" aria-live="polite" aria-atomic="true">
@@ -17,7 +25,7 @@
 	</div>
 
 	<button id="reconnect" type="button">Reconnect</button>
-	<button id="reset" type="button">Reset</button>
+	<button id="reset" type="button">Discard Changes</button>
 
 	<div id="config-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -30,8 +38,9 @@
 				name="preset"
 				value="0"
 				checked
+				aria-labelledby="preset-radio-0"
 			/>
-			<span>1. Unnamed</span>
+			<span id="preset-radio-0">1. Unnamed</span>
 		</label>
 
 		<label>
@@ -39,8 +48,9 @@
 				type="radio"
 				name="preset"
 				value="1"
+				aria-labelledby="preset-radio-1"
 			/>
-			<span>2. Unnamed</span>
+			<span id="preset-radio-1">2. Unnamed</span>
 		</label>
 
 		<label>
@@ -48,8 +58,9 @@
 				type="radio"
 				name="preset"
 				value="2"
+				aria-labelledby="preset-label-2"
 			/>
-			<span>3. Unnamed</span>
+			<span id="preset-radio-2">3. Unnamed</span>
 		</label>
 
 		<label>
@@ -57,8 +68,9 @@
 				type="radio"
 				name="preset"
 				value="3"
+				aria-labelledby="preset-radio-3"
 			/>
-			<span>4. Unnamed</span>
+			<span id="preset-radio-3">4. Unnamed</span>
 		</label>
 	</fieldset>
 
@@ -81,7 +93,6 @@
 		</button>
 
 		<table>
-			<caption>Pot configuration</caption>
 			<thead>
 				<tr>
 					<th scope="col">Pot</th>

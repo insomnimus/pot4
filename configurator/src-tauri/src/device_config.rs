@@ -126,14 +126,14 @@ pub struct DeviceConfig {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "data")]
 pub enum ConfigChange {
 	ActivePreset(u8),
 	Preset(PresetChange),
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "data")]
 pub enum PresetChange {
 	Name {
 		preset: u8,
@@ -149,7 +149,7 @@ pub enum PresetChange {
 
 impl ConfigChange {
 	pub fn to_command_string(&self) -> String {
-		match self {
+		let s = match self {
 			Self::ActivePreset(preset) => format!("config.set preset={preset}"),
 			Self::Preset(preset_change) => match preset_change {
 				PresetChange::Name { preset, name } => format!("preset.set {preset} name={name}"),
@@ -160,6 +160,9 @@ impl ConfigChange {
 					cc,
 				} => format!("preset.set {preset} pot{pot}.cc={cc};pot{pot}.chan={channel}"),
 			},
-		}
+		};
+
+		println!("change: {s}");
+		s
 	}
 }

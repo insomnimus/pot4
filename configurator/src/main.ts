@@ -1,14 +1,11 @@
 import {
 	type DeviceConfig,
-	type Preset,
-	type PotConfig,
-	type ConfigChange,
-	type PresetChange,
 	connectDevice,
 	getConfig,
 	changeSetting,
 	resetConfig,
 	saveChanges,
+	fetchActivePresetIndex,
 } from "./backend";
 
 let guiState: DeviceConfig | null = null;
@@ -25,6 +22,11 @@ function updateGui(): void {
 	const preset = guiState.presets[selectedPreset];
 
 	const presetName = document.getElementById("preset-name") as HTMLInputElement;
+
+	const heading = document.getElementById("preset-heading");
+	if (heading) {
+		heading.textContent = preset.name || `Preset ${selectedPreset + 1} (Unnamed)`;
+	}
 
 	presetName.value = preset.name;
 
@@ -50,15 +52,6 @@ function updateGui(): void {
 	updateUseButton();
 	updatePresetLabels();
 	updateDirtyMarkers();
-}
-
-async function initialize(): Promise<void> {
-	guiState = await getConfig(false);
-	savedState = await getConfig(true);
-
-	selectedPreset = 0;
-
-	updateGui();
 }
 
 function presetIsDirty(index: number): boolean {
@@ -120,7 +113,7 @@ function updatePresetLabels(): void {
 		const name = guiState!.presets[index].name || "Unnamed";
 		const marker = presetIsDirty(index) ? " *" : "";
 
-		span.textContent = `${index + 1}. ${name}${marker}`;
+		span.textContent = `${name}${marker}`;
 	});
 }
 
@@ -156,6 +149,7 @@ function updateDirtyMarkers(): void {
 function setupPresetName(): void {
 	const input = document.getElementById("preset-name") as HTMLInputElement;
 
+	// This one just updates the GUI.
 	input.addEventListener("input", async () => {
 		if (guiState === null || operationInProgress) {
 			return;
@@ -163,15 +157,19 @@ function setupPresetName(): void {
 
 		guiState.presets[selectedPreset].name = input.value;
 
+		// document.getElementById(`preset-radio-${selectedPreset}`)!.textContent = `${selectedPreset + 1}. input.value`;
+		updatePresetLabels();
 		updateDirtyMarkers();
+	});
+
+	// This one actually updates the device.
+	input.addEventListener("change", async () => {
 		await changeSetting({
 			type: "Preset",
-			data: [
-				{
-					type: "Name",
-					data: { preset: selectedPreset, name: input.value },
-				},
-			],
+			data: {
+				type: "Name",
+				data: { preset: selectedPreset, name: input.value },
+			},
 		});
 	});
 }
@@ -205,17 +203,15 @@ function setupPotInputs(): void {
 
 			await changeSetting({
 				type: "Preset",
-				data: [
-					{
-						type: "Pot",
-						data: {
-							preset: selectedPreset,
-							pot: potIndex,
-							cc: pot.cc,
-							channel: pot.channel,
-						},
+				data: {
+					type: "Pot",
+					data: {
+						preset: selectedPreset,
+						pot: potIndex,
+						cc: pot.cc,
+						channel: pot.channel,
 					},
-				],
+				},
 			});
 		});
 	});
@@ -231,9 +227,7 @@ function setupPresetSelection(): void {
 				return;
 			}
 
-			selectedPreset = Number(radio.value);
-
-			updateGui();
+			selectPreset(Number(radio.value));
 		});
 	});
 }
@@ -342,12 +336,12 @@ function updateOperationState(): void {
 	updateUseButton();
 }
 
-async function fetchActivePresetIndex(): Promise<number> {
-	throw new Error("TODO");
-}
-
 async function pollActivePreset(): Promise<void> {
 	while (true) {
+		if (!guiState) {
+			continue;
+		}
+
 		try {
 			const activePreset = await fetchActivePresetIndex();
 
@@ -366,10 +360,10 @@ async function pollActivePreset(): Promise<void> {
 }
 
 async function connectDeviceWithStatus(): Promise<boolean> {
-	const reconnectButton = document.getElementById("reconnect-button")! as HTMLButtonElement;
+	const reconnectButton = document.getElementById("reconnect")! as HTMLButtonElement;
 	reconnectButton.disabled = true;
 
-	const status = document.getElementById("midi-status")!;
+	const status = document.getElementById("connection-status")!;
 
 	operationInProgress = true;
 	updateOperationState();
@@ -384,6 +378,7 @@ async function connectDeviceWithStatus(): Promise<boolean> {
 		savedState = await getConfig(true);
 
 		status.textContent = "Connected.";
+		updateGui();
 
 		return true;
 	} catch (error) {
@@ -396,4 +391,89 @@ async function connectDeviceWithStatus(): Promise<boolean> {
 		operationInProgress = false;
 		updateOperationState();
 	}
+}
+
+function selectPreset(index: number, announce: boolean = false): void {
+	selectedPreset = index;
+
+	// Update all GUI values (populates #preset-name, pot inputs, dirty markers)
+	updateGui();
+
+	if (announce && guiState) {
+		const name = guiState.presets[index].name || "Unnamed";
+		const marker = presetIsDirty(index) ? " *" : "";
+
+		// Announce current preset context to screen readers without moving focus.
+		announceToScreenReader(`Preset ${index + 1} - ${name}${marker}`);
+	}
+}
+
+function setupKeyboardShortcuts(): void {
+	window.addEventListener("keydown", (event: KeyboardEvent) => {
+		// Intercept Ctrl+Tab and Ctrl+Shift+Tab
+		if (event.ctrlKey && event.key === "Tab") {
+			if (operationInProgress || !guiState) {
+				return;
+			}
+
+			event.preventDefault();
+
+			const totalPresets = guiState.presets.length;
+			let targetPreset = selectedPreset;
+
+			if (event.shiftKey) {
+				// Ctrl+Shift+Tab: Previous preset (wrap around)
+				targetPreset = (selectedPreset - 1 + totalPresets) % totalPresets;
+			} else {
+				// Ctrl+Tab: Next preset (wrap around)
+				targetPreset = (selectedPreset + 1) % totalPresets;
+			}
+
+			if (targetPreset !== selectedPreset) {
+				// Change preset and announce
+				selectPreset(targetPreset, true);
+			}
+		}
+	});
+}
+
+function announceToScreenReader(message: string): void {
+	const announcer = document.getElementById("sr-announcer");
+	if (!announcer) {
+		return;
+	}
+
+	// Clear and reset to ensure screen readers re-announce identical strings if triggered rapidly
+	announcer.textContent = "";
+
+	// Slight delay allows NVDA to detect the DOM mutation reliably
+	setTimeout(() => {
+		announcer.textContent = message;
+	}, 50);
+}
+
+try {
+	await connectDeviceWithStatus();
+
+	selectedPreset = 0;
+	pollActivePreset();
+
+	setupKeyboardShortcuts();
+	setupPresetName();
+	setupPotInputs();
+	setupPresetSelection();
+	setupUseButton();
+
+	for (const [id, func] of [
+		["reset", reset],
+		["save", save],
+	] as const) {
+		const button = document.getElementById(id);
+		button?.addEventListener("click", async () => await func());
+	}
+
+	updateGui();
+} catch (e) {
+	console.error(`error initializing: ${e}`);
+	alert(`Error initializing: ${e}`);
 }
