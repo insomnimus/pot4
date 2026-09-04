@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { minify } from "npm:html-minifier-terser@^7.2.0";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
@@ -26,4 +27,20 @@ export default defineConfig(() => ({
 			ignored: ["**/src-tauri/**"],
 		},
 	},
+	plugins: [
+		{
+			name: "html-minifier",
+			enforce: "post",
+			async transformIndexHtml(html) {
+				return await minify(html, {
+					collapseWhitespace: true,
+					removeComments: true,
+					removeRedundantAttributes: true,
+					removeScriptTypeAttributes: true,
+					removeStyleLinkTypeAttributes: true,
+					useShortDoctype: true,
+				});
+			},
+		},
+	],
 }));
