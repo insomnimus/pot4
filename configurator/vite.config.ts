@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
-import { minify } from "npm:html-minifier-terser@^7.2.0";
+import { minify } from "html-minifier-terser";
+
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;

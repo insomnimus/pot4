@@ -4,6 +4,7 @@
     "npm:@tauri-apps/api@2": "2.11.1",
     "npm:@tauri-apps/cli@2": "2.11.4",
     "npm:@tauri-apps/plugin-opener@2": "2.5.4",
+    "npm:@types/html-minifier-terser@^7.0.2": "7.0.2",
     "npm:html-minifier-terser@^7.2.0": "7.2.0",
     "npm:typescript@~6.0.3": "6.0.3",
     "npm:vite@^8.0.16": "8.2.2"
@@ -197,6 +198,9 @@
       "dependencies": [
         "@tauri-apps/api"
       ]
+    },
+    "@types/html-minifier-terser@7.0.2": {
+      "integrity": "sha512-mm2HqV22l8lFQh4r2oSsOEVea+m0qqxEmwpc9kC1p/XzmjLWrReR9D/GRs8Pex2NX/imyEH9c5IU/7tMBQCHOA=="
     },
     "acorn@8.18.0": {
       "integrity": "sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==",
@@ -469,6 +473,7 @@
         "npm:@tauri-apps/api@2",
         "npm:@tauri-apps/cli@2",
         "npm:@tauri-apps/plugin-opener@2",
+        "npm:@types/html-minifier-terser@^7.0.2",
         "npm:html-minifier-terser@^7.2.0",
         "npm:typescript@~6.0.3",
         "npm:vite@^8.0.16"
