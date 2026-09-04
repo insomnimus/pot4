@@ -9,172 +9,119 @@
 	</head>
 
 	<body>
-		<div 
-    id="sr-announcer" 
-    class="sr-only" 
-    role="status" 
-    aria-live="assertive" 
-    aria-atomic="true"
-></div>
+		<div
+			id="sr-announcer"
+			class="sr-only"
+			role="status"
+			aria-live="assertive"
+			aria-atomic="true"
+		></div>
 
-<main>
-		<h1>Pot4 Configuration</h1>
+		<main>
+			<h1>Pot4 Configuration</h1>
 
-	<div id="connection-status" role="status" aria-live="polite" aria-atomic="true">
-		Connecting to Pot4 MIDI CC Controller...
-	</div>
+			<div id="connection-status" role="status" aria-live="polite" aria-atomic="true">
+				Connecting to Pot4 MIDI CC Controller...
+			</div>
 
-	<button id="reconnect" type="button">Reconnect</button>
-	<button id="reset" type="button">Discard Changes</button>
+			<button id="reconnect" type="button">Reconnect</button>
+			<button id="reset" type="button">Discard Changes</button>
 
-	<div id="config-status" role="status" aria-live="polite" aria-atomic="true"></div>
+			<div id="config-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
-	<fieldset>
-		<legend>Preset</legend>
+			<fieldset>
+				<legend>Preset</legend>
 
-		<label>
-			<input
-				type="radio"
-				name="preset"
-				value="0"
-				checked
-				aria-labelledby="preset-radio-0"
-			/>
-			<span id="preset-radio-0">1. Unnamed</span>
-		</label>
+				<label>
+					<input type="radio" name="preset" value="0" checked aria-labelledby="preset-radio-0" />
+					<span id="preset-radio-0">1. Unnamed</span>
+				</label>
 
-		<label>
-			<input
-				type="radio"
-				name="preset"
-				value="1"
-				aria-labelledby="preset-radio-1"
-			/>
-			<span id="preset-radio-1">2. Unnamed</span>
-		</label>
+				<label>
+					<input type="radio" name="preset" value="1" aria-labelledby="preset-radio-1" />
+					<span id="preset-radio-1">2. Unnamed</span>
+				</label>
 
-		<label>
-			<input
-				type="radio"
-				name="preset"
-				value="2"
-				aria-labelledby="preset-label-2"
-			/>
-			<span id="preset-radio-2">3. Unnamed</span>
-		</label>
+				<label>
+					<input type="radio" name="preset" value="2" aria-labelledby="preset-label-2" />
+					<span id="preset-radio-2">3. Unnamed</span>
+				</label>
 
-		<label>
-			<input
-				type="radio"
-				name="preset"
-				value="3"
-				aria-labelledby="preset-radio-3"
-			/>
-			<span id="preset-radio-3">4. Unnamed</span>
-		</label>
-	</fieldset>
+				<label>
+					<input type="radio" name="preset" value="3" aria-labelledby="preset-radio-3" />
+					<span id="preset-radio-3">4. Unnamed</span>
+				</label>
+			</fieldset>
 
-	<section id="controls" aria-labelledby="preset-heading">
-		<h2 id="preset-heading">Preset 1</h2>
+			<section id="controls" aria-labelledby="preset-heading">
+				<h2 id="preset-heading">Preset 1</h2>
 
-		<label for="preset-name">Preset name</label>
-		<input
-			id="preset-name"
-			type="text"
-			maxlength="32"
-		>
+				<label for="preset-name">Preset name</label>
+				<input id="preset-name" type="text" maxlength="32" />
 
-		<button
-			id="use-preset"
-			type="button"
-			title="Use this preset's values for the active live configuration"
-		>
-			Use
-		</button>
+				<button
+					id="use-preset"
+					type="button"
+					title="Use this preset's values for the active live configuration"
+				>
+					Use
+				</button>
 
-		<table>
-			<thead>
-				<tr>
-					<th scope="col">Pot</th>
-					<th scope="col">CC</th>
-					<th scope="col">Channel</th>
-				</tr>
-			</thead>
+				<table>
+					<thead>
+						<tr>
+							<th scope="col">Pot</th>
+							<th scope="col">CC</th>
+							<th scope="col">Channel</th>
+						</tr>
+					</thead>
 
-			<tbody id="pot-config">
-				<tr data-pot="0">
-					<th scope="row">1</th>
-					<td>
-						<input
-							data-field="cc"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-					<td>
-						<input
-							data-field="channel"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-				</tr>
+					<tbody id="pot-config">
+						<tr data-pot="0">
+							<th scope="row">1</th>
+							<td>
+								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+							<td>
+								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+						</tr>
 
-				<tr data-pot="1">
-					<th scope="row">2</th>
-					<td>
-						<input
-							data-field="cc"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-					<td>
-						<input
-							data-field="channel"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-				</tr>
+						<tr data-pot="1">
+							<th scope="row">2</th>
+							<td>
+								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+							<td>
+								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+						</tr>
 
-				<tr data-pot="2">
-					<th scope="row">3</th>
-					<td>
-						<input
-							data-field="cc"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-					<td>
-						<input
-							data-field="channel"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-				</tr>
+						<tr data-pot="2">
+							<th scope="row">3</th>
+							<td>
+								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+							<td>
+								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+						</tr>
 
-				<tr data-pot="3">
-					<th scope="row">4</th>
-					<td>
-						<input
-							data-field="cc"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-					<td>
-						<input
-							data-field="channel"
-							type="text" inputmode="numeric" pattern="[0-9]*"
-						>
-					</td>
-				</tr>
-			</tbody>
-		</table>
+						<tr data-pot="3">
+							<th scope="row">4</th>
+							<td>
+								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+							<td>
+								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
+							</td>
+						</tr>
+					</tbody>
+				</table>
 
-		<button id="save" type="button" disabled>
-			Save
-		</button>
-		<span>Persist current configuration</span>
-	</section>
-
-</main>
-</body>
-
+				<button id="save" type="button" disabled>Save</button>
+				<span>Persist current configuration</span>
+			</section>
+		</main>
+	</body>
 </html>

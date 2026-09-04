@@ -178,28 +178,28 @@ function setupPotInputs(): void {
 	const inputs = document.querySelectorAll<HTMLInputElement>("#pot-config input[data-field]");
 
 	inputs.forEach(input => {
-		        // Restore Up/Down arrow key support for numeric editing
-        input.addEventListener("keydown", (e: KeyboardEvent) => {
-            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+		// Restore Up/Down arrow key support for numeric editing
+		input.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
 				return;
 			}
 
-            e.preventDefault();
+			e.preventDefault();
 
-            const isCC = input.dataset.field === "cc";
-            const min = 1;
-            const max = isCC ? 128 : 16;
-            
-            let val = Number(input.value) || min;
-            val = e.key === "ArrowUp" ? val + 1 : val - 1;
-            
-            val = Math.max(min, Math.min(max, val));
-            
-            input.value = String(val);
+			const isCC = input.dataset.field === "cc";
+			const min = 1;
+			const max = isCC ? 128 : 16;
 
-            // Trigger the input event to process backend update & UI dirty markers.
-            input.dispatchEvent(new Event("input", { bubbles: true }));
-        });
+			let val = Number(input.value) || min;
+			val = e.key === "ArrowUp" ? val + 1 : val - 1;
+
+			val = Math.max(min, Math.min(max, val));
+
+			input.value = String(val);
+
+			// Trigger the input event to process backend update & UI dirty markers.
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+		});
 
 		input.addEventListener("input", async () => {
 			if (guiState === null || operationInProgress) {
@@ -454,23 +454,23 @@ function setupKeyboardShortcuts(): void {
 	window.addEventListener("keydown", (event: KeyboardEvent) => {
 		// Ctrl+letter combos
 		if (event.ctrlKey && !event.altKey && !event.metaKey) {
-            const key = event.key.toLowerCase();
+			const key = event.key.toLowerCase();
 
-            switch(key) {
+			switch (key) {
 				case "s": {
-                event.preventDefault();
-            
-                void save();
-                return;
-            }
-			case "d": {
-                event.preventDefault();
+					event.preventDefault();
 
-                void reset();
-                return;
-            }
+					void save();
+					return;
+				}
+				case "d": {
+					event.preventDefault();
+
+					void reset();
+					return;
+				}
 			}
-        }
+		}
 
 		// Ctrl+Tab and Ctrl+Shift+Tab
 		if (event.ctrlKey && event.key === "Tab") {
