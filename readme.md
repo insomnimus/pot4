@@ -65,6 +65,17 @@ Responses can vary.
 #### `ping`
 If the wire communication's functioning, a `pong` response is returned.
 
+#### `factory-reset`
+Resets the device to its factory settings.
+
+There's no confirmation or a way to undo this command.
+
+examples
+```
+> factory-reset
+ok
+```
+
 #### `config.get`
 Without any arguments, the active preset, and its pot configuration is returned.
 

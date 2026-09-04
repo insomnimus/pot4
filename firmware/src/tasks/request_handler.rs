@@ -123,6 +123,22 @@ pub async fn request_handler_task(
 					.apply(&changes);
 				send(&resp_sender, is_ext, OK).await;
 			}
+
+			Command::FactoryReset => {
+				info!("Factory reset requested\nErasing flash memory...");
+				match storage.erase_page() {
+					Ok(_) => {
+						info!("Flash memory erased");
+						*device_config.lock().await = DeviceConfig::FACTORY;
+						info!("Device reset to factory defaults");
+						send(&resp_sender, is_ext, OK).await;
+					}
+					Err(e) => {
+						defmt::error!("error erasing flash: {}", e);
+						send(&resp_sender, is_ext, b"error Failure erasing flash memory").await;
+					}
+				}
+			}
 		}
 	}
 }

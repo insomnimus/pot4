@@ -96,10 +96,7 @@ where
 			Ok(n) => storage.write_offset = n,
 			Err(_) => {
 				// Page is corrupted or in an invalid state; erase and start fresh.
-				let _ = storage
-					.flash
-					.blocking_erase(PAGE_OFFSET, PAGE_OFFSET + PAGE_SIZE as u32);
-				storage.write_offset = 0;
+				let _ = storage.erase_page();
 			}
 		}
 
@@ -173,10 +170,7 @@ where
 
 		// If there isn't enough room, erase the page and start over.
 		if self.write_offset + record_size > PAGE_SIZE {
-			self.flash
-				.blocking_erase(PAGE_OFFSET, PAGE_OFFSET + PAGE_SIZE as u32)?;
-
-			self.write_offset = 0;
+			self.erase_page()?;
 		}
 
 		// Add padding.
@@ -188,6 +182,14 @@ where
 		self.write_from_scratch(self.write_offset, record_size)?;
 
 		self.write_offset += record_size;
+
+		Ok(())
+	}
+
+	pub fn erase_page(&mut self) -> Result<(), Error> {
+		self.flash
+			.blocking_erase(PAGE_OFFSET, PAGE_OFFSET + PAGE_SIZE as u32)?;
+		self.write_offset = 0;
 
 		Ok(())
 	}
@@ -236,16 +238,6 @@ where
 	fn read_to_scratch(&mut self, offset: usize, length: usize) -> Result<(), Error> {
 		self.flash
 			.blocking_read(PAGE_OFFSET + offset as u32, &mut self.buf[..length])?;
-
-		Ok(())
-	}
-
-	fn _write(&mut self, offset: usize, data: &[u8]) -> Result<(), Error> {
-		assert_eq!(offset % WRITE_SIZE, 0);
-		assert_eq!(data.len() % WRITE_SIZE, 0);
-
-		self.flash
-			.blocking_write(PAGE_OFFSET + offset as u32, data)?;
 
 		Ok(())
 	}

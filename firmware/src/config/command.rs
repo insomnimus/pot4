@@ -73,6 +73,7 @@ pub enum Command {
 		preset: u8,
 		changes: ArrayVec<PresetConfigChange, MAX_PRESET_CHANGES>,
 	},
+	FactoryReset,
 }
 
 impl Command {
@@ -84,7 +85,7 @@ impl Command {
 
 		let cmd = match cmd {
 			// These commands have no arguments.
-			"ping" | "config.save" | "config.reset" if !args.is_empty() => {
+			"ping" | "config.save" | "config.reset" | "factory-reset" if !args.is_empty() => {
 				return Err(ParseError::CommandTakesNoArgs);
 			}
 
@@ -155,6 +156,8 @@ impl Command {
 
 				Self::SetPreset { preset, changes }
 			}
+
+			"factory-reset" => Self::FactoryReset,
 
 			_ => return Err(ParseError::UnknownCommand),
 		};
