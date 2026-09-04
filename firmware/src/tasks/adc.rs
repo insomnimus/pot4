@@ -30,7 +30,7 @@ use crate::{
 	pot::Pot,
 };
 
-const SAMPLING_RATE: i32 = 8000;
+const SAMPLING_RATE: i32 = 2000;
 const ADC_AVERAGE_WINDOW: usize = 8;
 const SAMPLE_PERIOD_US: u64 = 1_000_000 / SAMPLING_RATE as u64;
 const ADC_INPUT_RANGE: (i32, i32) = (10, 4085);
