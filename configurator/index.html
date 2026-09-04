@@ -70,57 +70,96 @@
 				<table>
 					<thead>
 						<tr>
-							<th scope="col">Pot</th>
-							<th scope="col">CC</th>
-							<th scope="col">Channel</th>
+							<th scope="col">Setting</th>
+							<th scope="col" data-pot="0">Pot 1</th>
+							<th scope="col" data-pot="1">Pot 2</th>
+							<th scope="col" data-pot="2">Pot 3</th>
+							<th scope="col" data-pot="3">Pot 4</th>
 						</tr>
 					</thead>
-
 					<tbody id="pot-config">
-						<tr data-pot="0">
-							<th scope="row">1</th>
+						<tr data-field="cc">
+							<th scope="row">CC</th>
 							<td>
-								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+								<input
+									data-pot="0"
+									data-field="cc"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
 							</td>
 							<td>
-								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
+								<input
+									data-pot="1"
+									data-field="cc"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
+							</td>
+							<td>
+								<input
+									data-pot="2"
+									data-field="cc"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
+							</td>
+							<td>
+								<input
+									data-pot="3"
+									data-field="cc"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
 							</td>
 						</tr>
-
-						<tr data-pot="1">
-							<th scope="row">2</th>
+						<tr data-field="channel">
+							<th scope="row">Channel</th>
 							<td>
-								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+								<input
+									data-pot="0"
+									data-field="channel"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
 							</td>
 							<td>
-								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
-							</td>
-						</tr>
-
-						<tr data-pot="2">
-							<th scope="row">3</th>
-							<td>
-								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
-							</td>
-							<td>
-								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
-							</td>
-						</tr>
-
-						<tr data-pot="3">
-							<th scope="row">4</th>
-							<td>
-								<input data-field="cc" type="text" inputmode="numeric" pattern="[0-9]*" />
+								<input
+									data-pot="1"
+									data-field="channel"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
 							</td>
 							<td>
-								<input data-field="channel" type="text" inputmode="numeric" pattern="[0-9]*" />
+								<input
+									data-pot="2"
+									data-field="channel"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
+							</td>
+							<td>
+								<input
+									data-pot="3"
+									data-field="channel"
+									type="text"
+									inputmode="numeric"
+									pattern="[0-9]*"
+								/>
 							</td>
 						</tr>
 					</tbody>
 				</table>
 
-				<button id="save" type="button" disabled>Save</button>
-				<span>Persist current configuration</span>
+				<button id="save" type="button" disabled>Persist current configuration</button>
 			</section>
 		</main>
 	</body>

@@ -30,17 +30,16 @@ function updateGui(): void {
 
 	presetName.value = preset.name;
 
-	const rows = document.querySelectorAll<HTMLTableRowElement>("#pot-config tr");
+	preset.pots.forEach((pot, potIndex) => {
+		const ccInput = document.querySelector<HTMLInputElement>(
+			`input[data-pot="${potIndex}"][data-field="cc"]`,
+		);
+		const channelInput = document.querySelector<HTMLInputElement>(
+			`input[data-pot="${potIndex}"][data-field="channel"]`,
+		);
 
-	rows.forEach((row, index) => {
-		const pot = preset.pots[index];
-
-		const cc = row.querySelector<HTMLInputElement>('input[data-field="cc"]')!;
-
-		const channel = row.querySelector<HTMLInputElement>('input[data-field="channel"]')!;
-
-		cc.value = String(pot.cc + 1);
-		channel.value = String(pot.channel + 1);
+		if (ccInput) ccInput.value = String(pot.cc + 1);
+		if (channelInput) channelInput.value = String(pot.channel + 1);
 	});
 
 	const radios = document.querySelectorAll<HTMLInputElement>('input[name="preset"]');
@@ -122,18 +121,14 @@ function updatePotDirtyMarkers(): void {
 		return;
 	}
 
-	const rows = document.querySelectorAll<HTMLTableRowElement>("#pot-config tr");
+	const inputs = document.querySelectorAll<HTMLInputElement>("#pot-config input[data-field]");
+	inputs.forEach(input => {
+		const potIndex = Number(input.dataset.pot);
+		const field = input.dataset.field as "cc" | "channel" | undefined;
 
-	rows.forEach((row, potIndex) => {
-		for (const field of ["cc", "channel"] as const) {
-			const input = row.querySelector<HTMLInputElement>(`input[data-field="${field}"]`);
+		if (isNaN(potIndex) || (field !== "cc" && field !== "channel")) return;
 
-			if (input === null) {
-				continue;
-			}
-
-			input.classList.toggle("dirty", potFieldIsDirty(selectedPreset, potIndex, field));
-		}
+		input.classList.toggle("dirty", potFieldIsDirty(selectedPreset, potIndex, field));
 	});
 }
 
@@ -178,7 +173,7 @@ function setupPotInputs(): void {
 	const inputs = document.querySelectorAll<HTMLInputElement>("#pot-config input[data-field]");
 
 	inputs.forEach(input => {
-		// Restore Up/Down arrow key support for numeric editing
+		// Up / down
 		input.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
 				return;
@@ -192,12 +187,9 @@ function setupPotInputs(): void {
 
 			let val = Number(input.value) || min;
 			val = e.key === "ArrowUp" ? val + 1 : val - 1;
-
 			val = Math.max(min, Math.min(max, val));
 
 			input.value = String(val);
-
-			// Trigger the input event to process backend update & UI dirty markers.
 			input.dispatchEvent(new Event("input", { bubbles: true }));
 		});
 
@@ -206,18 +198,10 @@ function setupPotInputs(): void {
 				return;
 			}
 
-			const row = input.closest<HTMLTableRowElement>("tr");
-
-			if (row === null) {
-				return;
-			}
-
-			const potIndex = Number(row.dataset.pot);
+			const potIndex = Number(input.dataset.pot);
 			const field = input.dataset.field;
 
-			if (field !== "cc" && field !== "channel") {
-				return;
-			}
+			if (isNaN(potIndex) || (field !== "cc" && field !== "channel")) return;
 
 			const pot = guiState.presets[selectedPreset].pots[potIndex];
 			pot[field] = Number(input.value) - 1;
