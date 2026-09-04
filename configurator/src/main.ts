@@ -178,6 +178,29 @@ function setupPotInputs(): void {
 	const inputs = document.querySelectorAll<HTMLInputElement>("#pot-config input[data-field]");
 
 	inputs.forEach(input => {
+		        // Restore Up/Down arrow key support for numeric editing
+        input.addEventListener("keydown", (e: KeyboardEvent) => {
+            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+				return;
+			}
+
+            e.preventDefault();
+
+            const isCC = input.dataset.field === "cc";
+            const min = 1;
+            const max = isCC ? 128 : 16;
+            
+            let val = Number(input.value) || min;
+            val = e.key === "ArrowUp" ? val + 1 : val - 1;
+            
+            val = Math.max(min, Math.min(max, val));
+            
+            input.value = String(val);
+
+            // Trigger the input event to process backend update & UI dirty markers.
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+
 		input.addEventListener("input", async () => {
 			if (guiState === null || operationInProgress) {
 				return;
@@ -279,6 +302,7 @@ async function save(): Promise<void> {
 	}
 
 	if (!isDirty() || operationInProgress) {
+		announceToScreenReader("No changes to save.");
 		return;
 	}
 
@@ -292,6 +316,7 @@ async function save(): Promise<void> {
 		savedState = await getConfig(true);
 
 		updateDirtyMarkers();
+		announceToScreenReader("Configuration saved.");
 	} finally {
 		operationInProgress = false;
 		updateOperationState();
@@ -300,6 +325,7 @@ async function save(): Promise<void> {
 
 async function reset(): Promise<void> {
 	if (operationInProgress) {
+		announceToScreenReader("Can't reset while another operation's in progress.");
 		return;
 	}
 
@@ -308,6 +334,7 @@ async function reset(): Promise<void> {
 
 	try {
 		await resetConfig();
+		announceToScreenReader("Changes discarded.");
 
 		if (savedState) {
 			guiState = await getConfig(false);
@@ -408,9 +435,44 @@ function selectPreset(index: number, announce: boolean = false): void {
 	}
 }
 
+function announceToScreenReader(message: string): void {
+	const announcer = document.getElementById("sr-announcer");
+	if (!announcer) {
+		return;
+	}
+
+	// Clear and reset to ensure screen readers re-announce identical strings if triggered rapidly
+	announcer.textContent = "";
+
+	// Slight delay allows NVDA to detect the DOM mutation reliably
+	setTimeout(() => {
+		announcer.textContent = message;
+	}, 50);
+}
+
 function setupKeyboardShortcuts(): void {
 	window.addEventListener("keydown", (event: KeyboardEvent) => {
-		// Intercept Ctrl+Tab and Ctrl+Shift+Tab
+		// Ctrl+letter combos
+		if (event.ctrlKey && !event.altKey && !event.metaKey) {
+            const key = event.key.toLowerCase();
+
+            switch(key) {
+				case "s": {
+                event.preventDefault();
+            
+                void save();
+                return;
+            }
+			case "d": {
+                event.preventDefault();
+
+                void reset();
+                return;
+            }
+			}
+        }
+
+		// Ctrl+Tab and Ctrl+Shift+Tab
 		if (event.ctrlKey && event.key === "Tab") {
 			if (operationInProgress || !guiState) {
 				return;
@@ -435,21 +497,6 @@ function setupKeyboardShortcuts(): void {
 			}
 		}
 	});
-}
-
-function announceToScreenReader(message: string): void {
-	const announcer = document.getElementById("sr-announcer");
-	if (!announcer) {
-		return;
-	}
-
-	// Clear and reset to ensure screen readers re-announce identical strings if triggered rapidly
-	announcer.textContent = "";
-
-	// Slight delay allows NVDA to detect the DOM mutation reliably
-	setTimeout(() => {
-		announcer.textContent = message;
-	}, 50);
 }
 
 try {
