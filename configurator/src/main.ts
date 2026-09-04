@@ -361,6 +361,9 @@ async function pollActivePreset(): Promise<void> {
 
 				updateUseButton();
 				updateDirtyMarkers();
+				announceToScreenReader(
+					`Active preset changed to ${guiState.presets[activePreset].name || `Unnamed (Slot ${activePreset + 1})`}`,
+				);
 			}
 		} catch (error) {
 			console.error("Failed to fetch active preset:", error);
