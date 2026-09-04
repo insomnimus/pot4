@@ -24,8 +24,11 @@
 				Connecting to Pot4 MIDI CC Controller...
 			</div>
 
-			<button id="reconnect" type="button">Reconnect</button>
-			<button id="reset" type="button">Discard Changes</button>
+			<!-- Added wrapper for top action buttons -->
+			<div class="actions-row">
+				<button id="reconnect" type="button">Reconnect</button>
+				<button id="reset" type="button">Discard Changes</button>
+			</div>
 
 			<div id="config-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -56,16 +59,18 @@
 			<section id="controls" aria-labelledby="preset-heading">
 				<h2 id="preset-heading">Preset 1</h2>
 
-				<label for="preset-name">Preset name</label>
-				<input id="preset-name" type="text" maxlength="32" />
-
-				<button
-					id="use-preset"
-					type="button"
-					title="Use this preset's values for the active live configuration"
-				>
-					Use
-				</button>
+				<!-- Added wrapper for preset name, input, and Use button -->
+				<div class="preset-name-group">
+					<label for="preset-name">Preset name</label>
+					<input id="preset-name" type="text" maxlength="32" />
+					<button
+						id="use-preset"
+						type="button"
+						title="Use this preset's values for the active live configuration"
+					>
+						Use
+					</button>
+				</div>
 
 				<table>
 					<thead>
