@@ -214,3 +214,25 @@ td input[type="text"] {
 	white-space: nowrap;
 	border: 0;
 }
+
+/* Force strict table-cell formatting so Chromium never collapses bounding boxes */
+#pot-config tr {
+	display: table-row !important;
+}
+
+#pot-config th,
+#pot-config td {
+	display: table-cell !important;
+	vertical-align: middle !important;
+	height: 2.5rem !important; /* Fixed row height prevents sub-pixel shifting */
+	line-height: 1 !important;
+}
+
+/* Ensure inputs fill the fixed cell box cleanly */
+#pot-config input[data-field] {
+	display: block !important;
+	width: 100% !important;
+	height: 100% !important;
+	box-sizing: border-box !important;
+	line-height: normal !important;
+}
