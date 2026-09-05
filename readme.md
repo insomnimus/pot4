@@ -46,7 +46,7 @@ There are 2 sources of configuration:
 A number ranging from 0 to 3, this stores the active preset.
 
 ### Config: Presets
-There are 4 preset slots. Each slot has a name (maximum 32 bytes), and configuration for each knob (CC and midi channel).
+There are 4 preset slots. Each slot has a name (maximum 32 bytes), and configuration for each knob (CC, midi channel, and other pots it triggers).
 
 ## The Configuration Wire Format
 The configuration endpoint uses a UTF-8 text based wire format akin to a shell.
@@ -87,17 +87,17 @@ Optional arguments:
 Examples
 ```
 > config.get
-preset=0;pot0.cc=9;pot0.chan=0;pot1.cc=10;pot1.chan=0;pot2.cc=11;pot2.chan=0;pot3.cc=12;pot3.chan=0
+preset=0;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3
 > config.get preset
 preset=0
 > config.get saved
-preset=3;pot0.cc=32;pot0.chan=2;pot1.cc=33;pot1.chan=2;pot2.cc=34;pot2.chan=2;pot3.cc=35;pot3.chan=2
+preset=3;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3
 > config.get saved.preset
 preset=3
 ```
 
 #### `config.set`
-Sets up to 9 config values.
+Sets up to 13 config values.
 The settings will be applied to whichever preset's active.
 
 The syntax is the same as the output of `config.get`.
@@ -105,6 +105,8 @@ The syntax is the same as the output of `config.get`.
 Examples
 ```
 > config.set pot0.cc=3
+ok
+> config.set pot0.triggers=0,2
 ok
 > config.set preset=2;pot0.chan=12
 ok
@@ -131,20 +133,20 @@ ok
 #### `preset.get`
 Returns configuration of a specified preset.
 
-Arguments:	
+Arguments:
 - `<preset-index>`: Index of the preset. Values are read from the live configuration.
 - `saved.<preset-index>`: Values are read from the last saved configuration.
 
 Examples
 ```
 > preset.get 0
-name=Preset 1;pot0.cc=9;pot0.chan=0;pot1.cc=10;pot1.chan=0;pot2.cc=11;pot2.chan=0;pot3.cc=12;pot3.chan=0
+name=Preset 1;preset=0;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3
 > preset.get saved.0
-name=Preset 1;pot0.cc=32;pot0.chan=2;pot1.cc=33;pot1.chan=2;pot2.cc=34;pot2.chan=2;pot3.cc=35;pot3.chan=2
+name=Preset 1;preset=0;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3
 ```
 
 #### `preset.set`
-Sets up to 9 config values.
+Sets up to 13 config values.
 The settings will be applied to the specified preset.
 
 Arguments:
@@ -155,7 +157,7 @@ Examples
 ```
 > preset.set 0 name=DAW Controls
 ok
-> preset.set 2 pot0.cc=9;pot0.chan=0;pot3.cc=3
+> preset.set 2 pot0.cc=9;pot0.chan=0;pot3.cc=3;pot2.triggers=1,2
 ok
 ```
 

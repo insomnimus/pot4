@@ -74,20 +74,21 @@ pub async fn adc_task(
 			adc.read(&mut p.PA3, SampleTime::CYCLES61_5).await,
 		];
 
-		let pot_config = device_config.lock().await.active_preset().pots;
-		for (sample, (pot, pot_config)) in
-			pot_samples.into_iter().zip(pots.iter_mut().zip(pot_config))
+		let pot_configs = device_config.lock().await.active_preset().pots;
+		for (sample, (pot, pot_config)) in pot_samples
+			.into_iter()
+			.zip(pots.iter_mut().zip(&pot_configs))
 		{
 			if let Some(value) = pot.update(sample as i32) {
-				// info!("cc {}: {}", pot_config.cc, value);
-				let packet = pot_config.create_cc_packet(value);
-				if let Err(e) = midi_sender.write_packet(&packet).await {
-					match e {
-						EndpointError::Disabled => {
-							active = false;
-							info!("adc: disabled");
+				for packet in pot_config.create_cc_packets(&pot_configs, value) {
+					if let Err(e) = midi_sender.write_packet(&packet).await {
+						match e {
+							EndpointError::Disabled => {
+								active = false;
+								info!("adc: disabled");
+							}
+							_ => defmt::error!("midi write error: {}", e),
 						}
-						_ => defmt::error!("midi write error: {}", e),
 					}
 				}
 			}

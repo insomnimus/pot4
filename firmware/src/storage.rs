@@ -28,7 +28,6 @@ const _: () = {
 };
 
 const MAGIC: u32 = 0x504F_5434; // "POT4" in big endian
-const FORMAT_VERSION: u16 = 1;
 
 const PAGE_SIZE: usize = 2 << 10;
 const SCRATCH_BUFFER_SIZE: usize = 1 << 10;
@@ -73,6 +72,10 @@ impl From<postcard::Error> for Error {
 	}
 }
 
+pub trait Versioned {
+	const VERSION: u16;
+}
+
 pub struct Storage<T> {
 	flash: Flash<'static, Blocking>,
 	buf: [u8; SCRATCH_BUFFER_SIZE],
@@ -82,7 +85,7 @@ pub struct Storage<T> {
 
 impl<T> Storage<T>
 where
-	T: Serialize + for<'de> Deserialize<'de>,
+	T: Versioned + Serialize + for<'de> Deserialize<'de>,
 {
 	pub fn init(flash: Peri<'static, FLASH>) -> Self {
 		let mut storage = Self {
@@ -130,7 +133,7 @@ where
 				break;
 			}
 
-			if version == FORMAT_VERSION {
+			if version == T::VERSION {
 				if length > SCRATCH_BUFFER_SIZE {
 					return Err(Error::RecordTooLarge);
 				}
@@ -156,7 +159,7 @@ where
 		}
 		// Now we know the length; write the haeder to the scratch space.
 		let magic_bytes = MAGIC.to_le_bytes();
-		let version_bytes = FORMAT_VERSION.to_le_bytes();
+		let version_bytes = T::VERSION.to_le_bytes();
 		let length_bytes = (length as u16).to_le_bytes();
 
 		self.buf[0..4].copy_from_slice(&magic_bytes);

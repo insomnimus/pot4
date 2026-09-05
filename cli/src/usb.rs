@@ -119,10 +119,10 @@ impl ConfigDevice {
 
 			message.push(byte[0]);
 
-			if message.len() > 128 {
+			if message.len() > 256 {
 				return Err(io::Error::new(
 					io::ErrorKind::InvalidData,
-					"Config message exceeds 128 bytes",
+					"Config message exceeds 256 bytes",
 				));
 			}
 		}

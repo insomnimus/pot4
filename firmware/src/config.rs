@@ -23,24 +23,43 @@ use self::command::{
 	PresetConfigChange,
 	PresetConfigKey,
 };
+use crate::storage::Versioned;
 
-const MAX_SERIALIZED_CONFIG_SIZE: usize = "pot4.chan=15;pot4.cc=127;".len() * 4 + ";preset=3".len();
+const MAX_SERIALIZED_CONFIG_SIZE: usize =
+	"pot3.chan=15;pot3.cc=127;pot3.triggers=0,1,2,3".len() * 4 + ";preset=3".len();
 const MAX_SERIALIZED_PRESET_CONFIG_SIZE: usize =
-	"pot4.chan=15;pot4.cc=127;".len() * 4 + ";name=".len() + 32;
+	"pot3.chan=15;pot3.cc=127;pot3.triggers=0,1,2,3".len() * 4 + ";name=".len() + 32;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Format)]
 pub struct PotConfig {
 	#[serde(rename = "ch")]
 	pub channel: u8,
 	pub cc: u8,
+	pub triggers: u8,
 }
 
 impl PotConfig {
 	pub const DEFAULT_POTS: [Self; 4] = [
-		Self { cc: 9, channel: 0 },
-		Self { cc: 10, channel: 0 },
-		Self { cc: 11, channel: 0 },
-		Self { cc: 12, channel: 0 },
+		Self {
+			cc: 9,
+			channel: 0,
+			triggers: 1 << 0,
+		},
+		Self {
+			cc: 10,
+			channel: 0,
+			triggers: 1 << 1,
+		},
+		Self {
+			cc: 11,
+			channel: 0,
+			triggers: 1 << 2,
+		},
+		Self {
+			cc: 12,
+			channel: 0,
+			triggers: 1 << 3,
+		},
 	];
 
 	pub fn create_cc_packet(self, value: u8) -> [u8; 4] {
@@ -50,6 +69,19 @@ impl PotConfig {
 			self.cc & 0x7f,               // CC Number (0-127)
 			value & 0x7f,                 // CC Value (0-127)
 		]
+	}
+
+	pub fn create_cc_packets(&self, pots: &[PotConfig; 4], value: u8) -> ArrayVec<[u8; 4], 4> {
+		let mut packets = ArrayVec::new();
+
+		for pot in 0..4 {
+			let mask = 1 << pot;
+			if self.triggers & mask == mask {
+				packets.push(pots[pot as usize].create_cc_packet(value));
+			}
+		}
+
+		packets
 	}
 }
 
@@ -78,12 +110,28 @@ impl DeviceConfig {
 
 		for (i, pot) in preset.pots.iter().enumerate() {
 			let mut writer = ArrayVecWriter { buf: &mut buf };
+
 			write!(
 				writer,
 				";pot{}.cc={};pot{}.chan={}",
 				i, pot.cc, i, pot.channel
 			)
 			.unwrap();
+
+			write!(writer, ";pot{}.triggers=", i).unwrap();
+			let mut n_triggers = 0;
+			for pot_index in 0..4 {
+				let mask = 1 << pot_index;
+
+				if pot.triggers & mask == mask {
+					if n_triggers > 0 {
+						writer.write_str(",").unwrap();
+					}
+
+					n_triggers += 1;
+					write!(writer, "{}", pot_index).unwrap();
+				}
+			}
 		}
 
 		buf
@@ -109,6 +157,9 @@ impl DeviceConfig {
 				}
 				ConfigKey::PotChan(pot) => {
 					self.active_preset_mut().pots[pot as usize].channel = change.value
+				}
+				ConfigKey::PotTriggers(pot) => {
+					self.active_preset_mut().pots[pot as usize].triggers = change.value
 				}
 				ConfigKey::Preset => self.active_preset = change.value,
 			}
@@ -150,12 +201,29 @@ impl Preset {
 
 		for (i, pot) in self.pots.iter().enumerate() {
 			let mut writer = ArrayVecWriter { buf: &mut buf };
+
 			write!(
 				writer,
 				";pot{}.cc={};pot{}.chan={}",
 				i, pot.cc, i, pot.channel
 			)
 			.unwrap();
+
+			write!(writer, ";pot{}.triggers=", i).unwrap();
+			let mut n_triggers = 0;
+			for pot_index in 0..4 {
+				let mask = 1 << pot_index;
+
+				if pot.triggers & mask == mask {
+					if n_triggers > 0 {
+						writer.write_str(",").unwrap();
+					}
+
+					n_triggers += 1;
+
+					write!(writer, "{}", pot_index).unwrap();
+				}
+			}
 		}
 
 		buf
@@ -170,6 +238,9 @@ impl Preset {
 				}
 				PresetConfigKey::PotChan(pot) => {
 					self.pots[pot as usize].channel = change.value.unwrap_u8()
+				}
+				PresetConfigKey::PotTriggers(pot) => {
+					self.pots[pot as usize].triggers = change.value.unwrap_u8()
 				}
 				PresetConfigKey::Name => self.name = change.value.unwrap_preset_name(),
 			}
@@ -187,4 +258,8 @@ impl<const N: usize> fmt::Write for ArrayVecWriter<'_, N> {
 			.try_extend_from_slice(s.as_bytes())
 			.map_err(|_| fmt::Error)
 	}
+}
+
+impl Versioned for DeviceConfig {
+	const VERSION: u16 = 2;
 }

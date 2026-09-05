@@ -6,8 +6,8 @@ use defmt::Format;
 
 use crate::Response;
 
-const MAX_CHANGES: usize = 9; // 2 per pot, 1 for preset
-const MAX_PRESET_CHANGES: usize = 9; // 2 per pot, 1 for preset name
+const MAX_CHANGES: usize = 13; // 3 per pot, 1 for preset
+const MAX_PRESET_CHANGES: usize = 13; // 3 per pot, 1 for preset name
 
 #[derive(Format, PartialEq, Eq, Copy, Clone)]
 pub enum ParseError {
@@ -174,18 +174,26 @@ pub struct ConfigChange {
 
 impl ConfigChange {
 	pub fn parse(assignment: &str) -> Result<Self, ParseError> {
-		let Some((key, value)) = assignment.split_once('=') else {
-			return Err(ParseError::InvalidAssignment);
-		};
+		let (key, value) = assignment
+			.split_once('=')
+			.ok_or(ParseError::InvalidAssignment)?;
 
 		let key = ConfigKey::parse(key)?;
-		let max = match key {
-			ConfigKey::PotCc(_) => 127,
-			ConfigKey::PotChan(_) => 15,
-			ConfigKey::Preset => 4,
-		};
+		let value = match key {
+			ConfigKey::PotCc(_) => parse_value(value, 127)?,
+			ConfigKey::PotChan(_) => parse_value(value, 15)?,
+			ConfigKey::Preset => parse_value(value, 3)?,
+			ConfigKey::PotTriggers(_) => {
+				let mut val = 0u8;
 
-		let value = parse_value(value, max)?;
+				for n in value.split(',') {
+					let shift = parse_value(n, 3)?;
+					val |= 1 << shift;
+				}
+
+				val
+			}
+		};
 
 		Ok(Self { key, value })
 	}
@@ -195,6 +203,7 @@ impl ConfigChange {
 pub enum ConfigKey {
 	PotCc(u8),
 	PotChan(u8),
+	PotTriggers(u8),
 	Preset,
 }
 
@@ -204,13 +213,9 @@ impl ConfigKey {
 			return Ok(Self::Preset);
 		}
 
-		let Some(rest) = key.strip_prefix("pot") else {
-			return Err(ParseError::UnknownKey);
-		};
+		let rest = key.strip_prefix("pot").ok_or(ParseError::UnknownKey)?;
 
-		let Some((pot, field)) = rest.split_once('.') else {
-			return Err(ParseError::UnknownKey);
-		};
+		let (pot, field) = rest.split_once('.').ok_or(ParseError::UnknownKey)?;
 
 		let pot = pot.parse::<u8>().map_err(|_| ParseError::InvalidPot)?;
 
@@ -221,6 +226,7 @@ impl ConfigKey {
 		match field {
 			"cc" => Ok(Self::PotCc(pot)),
 			"chan" => Ok(Self::PotChan(pot)),
+			"triggers" => Ok(Self::PotTriggers(pot)),
 			_ => Err(ParseError::UnknownKey),
 		}
 	}
@@ -230,6 +236,7 @@ impl ConfigKey {
 pub enum PresetConfigKey {
 	PotCc(u8),
 	PotChan(u8),
+	PotTriggers(u8),
 	Name,
 }
 
@@ -239,13 +246,9 @@ impl PresetConfigKey {
 			return Ok(Self::Name);
 		}
 
-		let Some(rest) = key.strip_prefix("pot") else {
-			return Err(ParseError::UnknownKey);
-		};
+		let rest = key.strip_prefix("pot").ok_or(ParseError::UnknownKey)?;
 
-		let Some((pot, field)) = rest.split_once('.') else {
-			return Err(ParseError::UnknownKey);
-		};
+		let (pot, field) = rest.split_once('.').ok_or(ParseError::UnknownKey)?;
 
 		let pot = pot.parse::<u8>().map_err(|_| ParseError::InvalidPot)?;
 
@@ -256,6 +259,7 @@ impl PresetConfigKey {
 		match field {
 			"cc" => Ok(Self::PotCc(pot)),
 			"chan" => Ok(Self::PotChan(pot)),
+			"triggers" => Ok(Self::PotTriggers(pot)),
 			_ => Err(ParseError::UnknownKey),
 		}
 	}
@@ -268,9 +272,9 @@ pub struct PresetConfigChange {
 
 impl PresetConfigChange {
 	fn parse(assignment: &str) -> Result<Self, ParseError> {
-		let Some((key, value)) = assignment.split_once('=') else {
-			return Err(ParseError::InvalidAssignment);
-		};
+		let (key, value) = assignment
+			.split_once('=')
+			.ok_or(ParseError::InvalidAssignment)?;
 
 		let key = PresetConfigKey::parse(key)?;
 		let value = PresetConfigValue::parse(value, key)?;
@@ -293,6 +297,16 @@ impl PresetConfigValue {
 			),
 			PresetConfigKey::PotCc(_) => Self::U8(parse_value(s, 127)?),
 			PresetConfigKey::PotChan(_) => Self::U8(parse_value(s, 15)?),
+			PresetConfigKey::PotTriggers(_) => {
+				let mut val = 0u8;
+
+				for n in s.split(',') {
+					let n = parse_value(n, 3)?;
+					val |= 1 << n;
+				}
+
+				Self::U8(val)
+			}
 		};
 
 		Ok(val)
