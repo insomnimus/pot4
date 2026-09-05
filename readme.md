@@ -2,7 +2,8 @@
 This repository hosts the firmware and configuration clients for the Pot4 MIDI CC Controller.
 
 ## The Hardware
-The device is a MIDI controller with 4 knobs and 4 buttons. For the microcontroller, an STM32-F3 Discovery board is used.
+The device is a MIDI controller with 4 knobs and 4 buttons, and an optional passive piezo buzzer.
+For the microcontroller, an STM32-F3 Discovery board is used.
 
 ### Wiring
 - Pots 1-4 (10k each):
@@ -13,6 +14,7 @@ The device is a MIDI controller with 4 knobs and 4 buttons. For the microcontrol
 - Buttons 1-4:
 	* One end to GND
 	* Other end to PB0-PB3
+- Optional: Passive piezo buzzer between PB4 and GND
 
 Powered over the user USB port on the board.
 
