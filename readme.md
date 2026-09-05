@@ -161,6 +161,22 @@ ok
 ok
 ```
 
+#### `beep`
+Makes a beep.
+
+Arguments:
+- `<frequency>`: Between 0 and 24000.
+- `<duration>`: Duration in milliseconds, up to 5000.
+- `[duty]`: PWM duty cycle multiplier, from 0.0 to 1.0. If omitted, 0.5 is used.
+
+Examples:
+```
+> beep 440 500
+ok
+> beep 880 250 0.01
+ok
+```
+
 ## Building The Project
 For all 3 sub-projects, you need a Rust toolchain, and for the firmware specifically, you need to install the `thumbv7em-none-eabihf` target:
 `rustup target add thumbv7em-none-eabihf`.
