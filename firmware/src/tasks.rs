@@ -1,4 +1,5 @@
 pub mod adc;
+pub mod beep;
 pub mod buttons;
 pub mod config_receiver;
 pub mod config_sender;

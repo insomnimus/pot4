@@ -1,3 +1,5 @@
+use core::str::FromStr;
+
 use arrayvec::{
 	ArrayString,
 	ArrayVec,
@@ -74,6 +76,10 @@ pub enum Command {
 		changes: ArrayVec<PresetConfigChange, MAX_PRESET_CHANGES>,
 	},
 	FactoryReset,
+	Beep {
+		fq: u16,
+		duration: u16,
+	},
 }
 
 impl Command {
@@ -158,6 +164,15 @@ impl Command {
 			}
 
 			"factory-reset" => Self::FactoryReset,
+
+			"beep" => {
+				let (fq, duration) = args.split_once(' ').ok_or(ParseError::InvalidValue)?;
+
+				Self::Beep {
+					fq: parse_value(fq, 20000)?,
+					duration: parse_value(duration, 5000)?,
+				}
+			}
 
 			_ => return Err(ParseError::UnknownCommand),
 		};
@@ -344,10 +359,8 @@ impl GetConfigKey {
 	}
 }
 
-fn parse_value(value: &str, max: u8) -> Result<u8, ParseError> {
-	let value = value.parse::<u16>().map_err(|_| ParseError::InvalidValue)?;
-
-	let n = u8::try_from(value).map_err(|_| ParseError::ValueOutOfRange)?;
+fn parse_value<T: FromStr + Ord>(value: &str, max: T) -> Result<T, ParseError> {
+	let n = value.parse().map_err(|_| ParseError::InvalidValue)?;
 
 	if n <= max {
 		Ok(n)

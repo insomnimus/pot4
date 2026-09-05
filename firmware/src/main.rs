@@ -15,6 +15,7 @@ use embassy_stm32::{
 	Config,
 	adc::Adc,
 	bind_interrupts,
+	gpio::OutputType,
 	rcc::{
 		AHBPrescaler,
 		APBPrescaler,
@@ -29,6 +30,13 @@ use embassy_stm32::{
 		Sysclk,
 	},
 	time::Hertz,
+	timer::{
+		low_level::CountingMode,
+		simple_pwm::{
+			PwmPin,
+			SimplePwm,
+		},
+	},
 	usb,
 };
 use embassy_sync::{
@@ -93,6 +101,7 @@ static MSOS_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
 
 static REQUEST_CHANNEL: Channel<ThreadModeRawMutex, Request, 4> = Channel::new();
 static RESPONSE_CHANNEL: Channel<ThreadModeRawMutex, Response, 4> = Channel::new();
+static BEEP_CHANNEL: Channel<ThreadModeRawMutex, tasks::beep::Beep, 2> = Channel::new();
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -174,6 +183,17 @@ async fn main(spawner: Spawner) {
 
 	let storage = Storage::init(p.FLASH);
 
+	let pwm = SimplePwm::new(
+		p.TIM3,
+		Some(PwmPin::new(p.PB4, OutputType::PushPull)),
+		None,
+		None,
+		None,
+		Hertz(1000),
+		CountingMode::EdgeAlignedUp,
+	);
+
+	spawner.spawn(tasks::beep::beep_task(pwm, BEEP_CHANNEL.receiver()).unwrap());
 	spawner.spawn(tasks::usb::usb_task(usb).unwrap());
 	spawner.spawn(
 		tasks::config_sender::config_sender_task(config_sender, RESPONSE_CHANNEL.receiver())
@@ -218,6 +238,7 @@ async fn main(spawner: Spawner) {
 			device_config,
 			storage,
 			REQUEST_CHANNEL.receiver(),
+			BEEP_CHANNEL.sender(),
 			RESPONSE_CHANNEL.sender(),
 		)
 		.unwrap(),

@@ -16,6 +16,7 @@ use crate::{
 		command::Command,
 	},
 	storage::Storage,
+	tasks::beep::Beep,
 };
 
 const OK: &[u8] = b"ok";
@@ -26,6 +27,7 @@ pub async fn request_handler_task(
 	device_config: &'static MutexedConfig,
 	mut storage: Storage<DeviceConfig>,
 	request_receiver: Receiver<'static, ThreadModeRawMutex, Request, 4>,
+	beep_sender: Sender<'static, ThreadModeRawMutex, Beep, 2>,
 	resp_sender: Sender<'static, ThreadModeRawMutex, Response, 4>,
 ) {
 	info!("Task request_handler started");
@@ -138,6 +140,16 @@ pub async fn request_handler_task(
 						send(&resp_sender, is_ext, b"error Failure erasing flash memory").await;
 					}
 				}
+			}
+
+			Command::Beep { fq, duration } => {
+				beep_sender
+					.send(Beep {
+						fq,
+						duration_ms: duration,
+					})
+					.await;
+				send(&resp_sender, is_ext, OK).await;
 			}
 		}
 	}
