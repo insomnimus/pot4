@@ -10,7 +10,6 @@ use embassy_sync::{
 use embassy_usb::driver::EndpointError;
 
 use crate::{
-	Request,
 	Response,
 	config::{
 		class::{
@@ -19,13 +18,13 @@ use crate::{
 		},
 		command::Command,
 	},
+	send_request,
 };
 
 /// Reads from the USB config endpoint and generates either a Request to be handled elsewhere, or a Response.
 #[embassy_executor::task]
 pub async fn config_receiver_task(
 	mut receiver: ConfigReceiver<'static, UsbDriver<'static, USB>>,
-	req_sender: Sender<'static, ThreadModeRawMutex, Request, 4>,
 	resp_sender: Sender<'static, ThreadModeRawMutex, Response, 4>,
 ) {
 	info!("Task config_receiver started");
@@ -41,14 +40,7 @@ pub async fn config_receiver_task(
 
 		match receiver.read_message().await {
 			Ok(msg) => match Command::parse(&msg) {
-				Ok(command) => {
-					req_sender
-						.send(Request {
-							cmd: command,
-							is_external: true,
-						})
-						.await
-				}
+				Ok(command) => send_request(true, command).await,
 				Err(e) => {
 					defmt::error!("command parse error: {}", e);
 					resp_sender.send(e.to_error_message()).await;

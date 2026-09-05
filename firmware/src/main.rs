@@ -44,6 +44,7 @@ use embassy_sync::{
 	channel::Channel,
 	mutex::Mutex,
 };
+use embassy_time::Timer;
 use embassy_usb::{
 	Builder,
 	Config as UsbConfig,
@@ -61,6 +62,7 @@ use self::{
 		},
 	},
 	storage::Storage,
+	tasks::beep::Beep,
 };
 use crate::config::command::Command;
 
@@ -101,7 +103,34 @@ static MSOS_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
 
 static REQUEST_CHANNEL: Channel<ThreadModeRawMutex, Request, 4> = Channel::new();
 static RESPONSE_CHANNEL: Channel<ThreadModeRawMutex, Response, 4> = Channel::new();
-static BEEP_CHANNEL: Channel<ThreadModeRawMutex, tasks::beep::Beep, 2> = Channel::new();
+static BEEP_CHANNEL: Channel<ThreadModeRawMutex, Beep, 2> = Channel::new();
+
+async fn send_request(is_external: bool, cmd: Command) {
+	REQUEST_CHANNEL.send(Request::new(cmd, is_external)).await;
+}
+
+async fn beep(fq: u16, duration_ms: u16, duty: f32) {
+	BEEP_CHANNEL
+		.send(Beep {
+			fq,
+			duration_ms,
+			duty,
+		})
+		.await;
+}
+
+async fn play_boot_sound() {
+	let melody = [
+		// (329, 70),
+		(440, 150),
+		(880, 150),
+	];
+
+	for (fq, duration_ms) in melody {
+		beep(fq * 2, duration_ms, 0.01).await;
+		Timer::after_millis(duration_ms as _).await;
+	}
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -200,12 +229,8 @@ async fn main(spawner: Spawner) {
 			.unwrap(),
 	);
 	spawner.spawn(
-		tasks::config_receiver::config_receiver_task(
-			config_receiver,
-			REQUEST_CHANNEL.sender(),
-			RESPONSE_CHANNEL.sender(),
-		)
-		.unwrap(),
+		tasks::config_receiver::config_receiver_task(config_receiver, RESPONSE_CHANNEL.sender())
+			.unwrap(),
 	);
 	spawner.spawn(
 		tasks::adc::adc_task(
@@ -222,15 +247,12 @@ async fn main(spawner: Spawner) {
 		.unwrap(),
 	);
 	spawner.spawn(
-		tasks::buttons::buttons_task(
-			tasks::buttons::ButtonPins {
-				button0: p.PB0,
-				button1: p.PB1,
-				button2: p.PB2,
-				button3: p.PB3,
-			},
-			REQUEST_CHANNEL.sender(),
-		)
+		tasks::buttons::buttons_task(tasks::buttons::ButtonPins {
+			button0: p.PB0,
+			button1: p.PB1,
+			button2: p.PB2,
+			button3: p.PB3,
+		})
 		.unwrap(),
 	);
 	spawner.spawn(
@@ -244,12 +266,7 @@ async fn main(spawner: Spawner) {
 		.unwrap(),
 	);
 
-	// Finally, trigger a config load.
-	REQUEST_CHANNEL
-		.sender()
-		.send(Request {
-			cmd: Command::ResetConfig,
-			is_external: false,
-		})
-		.await;
+	// Finally, trigger a config load and play the startup tone.
+	send_request(false, Command::ResetConfig).await;
+	play_boot_sound().await;
 }

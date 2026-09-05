@@ -11,10 +11,6 @@ use embassy_stm32::{
 		PB3,
 	},
 };
-use embassy_sync::{
-	blocking_mutex::raw::ThreadModeRawMutex,
-	channel::Sender,
-};
 use embassy_time::{
 	Duration,
 	Instant,
@@ -22,7 +18,6 @@ use embassy_time::{
 };
 
 use crate::{
-	Request,
 	button::{
 		Button,
 		Click,
@@ -32,6 +27,7 @@ use crate::{
 		ConfigChange,
 		ConfigKey,
 	},
+	send_request,
 };
 
 // Length of a tick.
@@ -47,10 +43,7 @@ pub struct ButtonPins {
 }
 
 #[embassy_executor::task]
-pub async fn buttons_task(
-	pins: ButtonPins,
-	sender: Sender<'static, ThreadModeRawMutex, Request, 4>,
-) {
+pub async fn buttons_task(pins: ButtonPins) {
 	let mut button_pins = [
 		Input::new(pins.button0, Pull::Up),
 		Input::new(pins.button1, Pull::Up),
@@ -72,19 +65,18 @@ pub async fn buttons_task(
 			if let Some(click) = button.update(reading, ticks, MULTIPRESS_TIMEOUT_TICKS) {
 				match click {
 					Click::Single | Click::Double | Click::Triple => {
-						sender
-							.send(Request::new(
-								Command::SetConfig {
-									changes: [ConfigChange {
-										key: ConfigKey::Preset,
-										value: i as u8,
-									}]
-									.into_iter()
-									.collect(),
-								},
-								false,
-							))
-							.await;
+						send_request(
+							false,
+							Command::SetConfig {
+								changes: [ConfigChange {
+									key: ConfigKey::Preset,
+									value: i as u8,
+								}]
+								.into_iter()
+								.collect(),
+							},
+						)
+						.await;
 					}
 				}
 			}

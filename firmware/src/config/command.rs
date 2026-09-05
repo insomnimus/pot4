@@ -25,6 +25,7 @@ pub enum ParseError {
 	ValueOutOfRange,
 	TooManyChanges,
 	CommandTakesNoArgs,
+	MissingArgs,
 }
 
 impl ParseError {
@@ -44,6 +45,7 @@ impl ParseError {
 			InvalidPreset => "Invalid preset",
 			PresetNameTooLong => "Preset name too long",
 			CommandTakesNoArgs => "Command takes no args",
+			MissingArgs => "error Missing one or more arguments",
 		};
 
 		let mut buf = Response::new();
@@ -79,6 +81,7 @@ pub enum Command {
 	Beep {
 		fq: u16,
 		duration: u16,
+		duty: Option<f32>,
 	},
 }
 
@@ -166,12 +169,28 @@ impl Command {
 			"factory-reset" => Self::FactoryReset,
 
 			"beep" => {
-				let (fq, duration) = args.split_once(' ').ok_or(ParseError::InvalidValue)?;
+				let mut args = args.split_ascii_whitespace();
 
-				Self::Beep {
-					fq: parse_value(fq, 20000)?,
-					duration: parse_value(duration, 5000)?,
+				let fq = parse_value(args.next().ok_or(ParseError::MissingArgs)?, 24000)?;
+				let duration = parse_value(args.next().ok_or(ParseError::MissingArgs)?, 5000)?;
+
+				let duty = args
+					.next()
+					.map(|s| {
+						let val = parse_value(s.trim(), 1.0)?;
+						if val < 0.0 {
+							Err(ParseError::ValueOutOfRange)
+						} else {
+							Ok(val)
+						}
+					})
+					.transpose()?;
+
+				if args.next().is_some() {
+					return Err(ParseError::InvalidValue);
 				}
+
+				Self::Beep { fq, duration, duty }
 			}
 
 			_ => return Err(ParseError::UnknownCommand),
@@ -359,7 +378,7 @@ impl GetConfigKey {
 	}
 }
 
-fn parse_value<T: FromStr + Ord>(value: &str, max: T) -> Result<T, ParseError> {
+fn parse_value<T: FromStr + PartialOrd>(value: &str, max: T) -> Result<T, ParseError> {
 	let n = value.parse().map_err(|_| ParseError::InvalidValue)?;
 
 	if n <= max {

@@ -142,11 +142,12 @@ pub async fn request_handler_task(
 				}
 			}
 
-			Command::Beep { fq, duration } => {
+			Command::Beep { fq, duration, duty } => {
 				beep_sender
 					.send(Beep {
 						fq,
 						duration_ms: duration,
+						duty: duty.unwrap_or(0.5),
 					})
 					.await;
 				send(&resp_sender, is_ext, OK).await;

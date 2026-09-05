@@ -23,6 +23,7 @@ use embedded_hal_02::Pwm;
 pub struct Beep {
 	pub fq: u16,
 	pub duration_ms: u16,
+	pub duty: f32,
 }
 
 #[embassy_executor::task]
@@ -39,7 +40,11 @@ pub async fn beep_task(
 		let mut beep = receiver.receive().await;
 
 		pwm.set_frequency(Hertz(beep.fq as u32));
-		pwm.set_duty(channel, pwm.max_duty_cycle() / 2);
+		let max_duty_cycle = pwm.max_duty_cycle();
+		pwm.set_duty(
+			channel,
+			(max_duty_cycle as f32 * beep.duty.clamp(0.0, 1.0)) as u32,
+		);
 		pwm.enable(channel);
 
 		loop {
@@ -54,7 +59,10 @@ pub async fn beep_task(
 					beep = new_beep;
 
 					pwm.set_frequency(Hertz(beep.fq as u32));
-					pwm.set_duty(channel, pwm.max_duty_cycle() / 2);
+					pwm.set_duty(
+						channel,
+						(max_duty_cycle as f32 * beep.duty.clamp(0.0, 1.0)) as u32,
+					);
 				}
 
 				Either::Second(()) => {
