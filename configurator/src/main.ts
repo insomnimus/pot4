@@ -40,6 +40,16 @@ function updateGui(): void {
 
 		if (ccInput) ccInput.value = String(pot.cc + 1);
 		if (channelInput) channelInput.value = String(pot.channel + 1);
+
+		// Trigger checkboxes.
+		for (let targetPot = 0; targetPot < 4; targetPot++) {
+			const triggerCheckbox = document.querySelector<HTMLInputElement>(
+				`input[data-source-pot="${potIndex}"][data-pot="${targetPot}"][data-field="trigger"]`,
+			);
+			if (triggerCheckbox) {
+				triggerCheckbox.checked = pot.triggers[targetPot];
+			}
+		}
 	});
 
 	const radios = document.querySelectorAll<HTMLInputElement>('input[name="preset"]');
@@ -68,7 +78,12 @@ function presetIsDirty(index: number): boolean {
 	return guiPreset.pots.some((pot, potIndex) => {
 		const savedPot = savedPreset.pots[potIndex];
 
-		return pot.cc !== savedPot.cc || pot.channel !== savedPot.channel;
+		if (pot.cc !== savedPot.cc || pot.channel !== savedPot.channel) {
+			return true;
+		}
+
+		// Check triggers.
+		return pot.triggers.some((trig, targetIdx) => trig !== savedPot.triggers[targetIdx]);
 	});
 }
 
@@ -80,6 +95,21 @@ function potFieldIsDirty(presetIndex: number, potIndex: number, field: "cc" | "c
 	return (
 		guiState.presets[presetIndex].pots[potIndex][field] !==
 		savedState.presets[presetIndex].pots[potIndex][field]
+	);
+}
+
+function triggerFieldIsDirty(
+	presetIndex: number,
+	sourcePotIndex: number,
+	targetPotIndex: number,
+): boolean {
+	if (!guiState || !savedState) {
+		return false;
+	}
+
+	return (
+		guiState.presets[presetIndex].pots[sourcePotIndex].triggers[targetPotIndex] !==
+		savedState.presets[presetIndex].pots[sourcePotIndex].triggers[targetPotIndex]
 	);
 }
 
@@ -121,15 +151,38 @@ function updatePotDirtyMarkers(): void {
 		return;
 	}
 
-	const inputs = document.querySelectorAll<HTMLInputElement>("#pot-config input[data-field]");
-	inputs.forEach(input => {
+	// Text input markers
+	const textInputs = document.querySelectorAll<HTMLInputElement>(
+		"#pot-config input[data-field='cc'], #pot-config input[data-field='channel']",
+	);
+	for (const input of textInputs) {
 		const potIndex = Number(input.dataset.pot);
 		const field = input.dataset.field as "cc" | "channel" | undefined;
 
-		if (isNaN(potIndex) || (field !== "cc" && field !== "channel")) return;
+		if (isNaN(potIndex) || (field !== "cc" && field !== "channel")) {
+			continue;
+		}
 
 		input.classList.toggle("dirty", potFieldIsDirty(selectedPreset, potIndex, field));
-	});
+	}
+
+	// Checkbox markers
+	const checkboxInputs = document.querySelectorAll<HTMLInputElement>(
+		"#pot-config input[data-field='trigger']",
+	);
+	for (const input of checkboxInputs) {
+		const sourcePotIndex = Number(input.dataset.sourcePot);
+		const targetPotIndex = Number(input.dataset.pot);
+
+		if (isNaN(sourcePotIndex) || isNaN(targetPotIndex)) {
+			continue;
+		}
+
+		input.classList.toggle(
+			"dirty",
+			triggerFieldIsDirty(selectedPreset, sourcePotIndex, targetPotIndex),
+		);
+	}
 }
 
 function updateDirtyMarkers(): void {
@@ -170,9 +223,11 @@ function setupPresetName(): void {
 }
 
 function setupPotInputs(): void {
-	const inputs = document.querySelectorAll<HTMLInputElement>("#pot-config input[data-field]");
+	const textInputs = document.querySelectorAll<HTMLInputElement>(
+		"#pot-config input[data-field='cc'], #pot-config input[data-field='channel']",
+	);
 
-	inputs.forEach(input => {
+	for (const input of textInputs) {
 		// Up / down
 		input.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
@@ -217,11 +272,51 @@ function setupPotInputs(): void {
 						pot: potIndex,
 						cc: pot.cc,
 						channel: pot.channel,
+						triggers: pot.triggers,
 					},
 				},
 			});
 		});
-	});
+	}
+
+	// Handlers for Trigger Checkboxes
+	const checkboxInputs = document.querySelectorAll<HTMLInputElement>(
+		"#pot-config input[data-field='trigger']",
+	);
+
+	for (const input of checkboxInputs) {
+		input.addEventListener("change", async () => {
+			if (!guiState || operationInProgress) {
+				return;
+			}
+
+			const sourcePotIndex = Number(input.dataset.sourcePot);
+			const targetPotIndex = Number(input.dataset.pot);
+
+			if (isNaN(sourcePotIndex) || isNaN(targetPotIndex)) {
+				return;
+			}
+
+			const pot = guiState.presets[selectedPreset].pots[sourcePotIndex];
+			pot.triggers[targetPotIndex] = input.checked;
+
+			updateDirtyMarkers();
+
+			await changeSetting({
+				type: "Preset",
+				data: {
+					type: "Pot",
+					data: {
+						preset: selectedPreset,
+						pot: sourcePotIndex,
+						cc: pot.cc,
+						channel: pot.channel,
+						triggers: pot.triggers,
+					},
+				},
+			});
+		});
+	}
 }
 
 // This does not change config; just changes the screen.

@@ -13,6 +13,7 @@ export interface Preset {
 export interface PotConfig {
 	cc: number;
 	channel: number;
+	triggers: [boolean, boolean, boolean, boolean];
 }
 
 export type ConfigChange =
@@ -21,7 +22,16 @@ export type ConfigChange =
 
 export type PresetChange =
 	| { type: "Name"; data: { preset: number; name: string } }
-	| { type: "Pot"; data: { preset: number; pot: number; cc: number; channel: number } };
+	| {
+			type: "Pot";
+			data: {
+				preset: number;
+				pot: number;
+				cc: number;
+				channel: number;
+				triggers: [boolean, boolean, boolean, boolean];
+			};
+	  };
 
 export async function connectDevice(): Promise<void> {
 	await invoke("connect_device");
