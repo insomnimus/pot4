@@ -11,12 +11,12 @@ use crate::{
 	MutexedConfig,
 	Request,
 	Response,
+	beep,
 	config::{
 		DeviceConfig,
 		command::Command,
 	},
 	storage::Storage,
-	tasks::beep::Beep,
 };
 
 const OK: &[u8] = b"ok";
@@ -27,7 +27,6 @@ pub async fn request_handler_task(
 	device_config: &'static MutexedConfig,
 	mut storage: Storage<DeviceConfig>,
 	request_receiver: Receiver<'static, ThreadModeRawMutex, Request, 4>,
-	beep_sender: Sender<'static, ThreadModeRawMutex, Beep, 2>,
 	resp_sender: Sender<'static, ThreadModeRawMutex, Response, 4>,
 ) {
 	info!("Task request_handler started");
@@ -55,7 +54,7 @@ pub async fn request_handler_task(
 					};
 
 					match key {
-						None => send(&resp_sender, true, &config.serialize()).await,
+						None => send(&resp_sender, is_ext, &config.serialize()).await,
 						Some(key) => send(&resp_sender, true, &config.serialize_key(key)).await,
 					}
 				}
@@ -142,14 +141,14 @@ pub async fn request_handler_task(
 				}
 			}
 
-			Command::Beep { fq, duration, duty } => {
-				beep_sender
-					.send(Beep {
-						fq,
-						duration_ms: duration,
-						duty: duty.unwrap_or(0.5),
-					})
-					.await;
+			Command::Beep { fq, duration, duty } => beep(fq, duration, duty.unwrap_or(0.0)),
+
+			Command::NextPreset => {
+				device_config.lock().await.next_preset();
+				send(&resp_sender, is_ext, OK).await;
+			}
+			Command::PreviousPreset => {
+				device_config.lock().await.previous_preset();
 				send(&resp_sender, is_ext, OK).await;
 			}
 		}

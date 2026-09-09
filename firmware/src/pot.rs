@@ -35,10 +35,6 @@ impl<const N: usize> Pot<N> {
 		}
 	}
 
-	pub fn _last_value(&self) -> u8 {
-		self.last_value
-	}
-
 	pub fn update(&mut self, sample: i32) -> Option<u8> {
 		if self.buf.try_push(sample).is_err() {
 			let average = self.buf.iter().sum::<i32>() / N as i32;

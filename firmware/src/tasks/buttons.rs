@@ -1,3 +1,4 @@
+use arrayvec::ArrayVec;
 use embassy_stm32::{
 	Peri,
 	gpio::{
@@ -18,22 +19,30 @@ use embassy_time::{
 };
 
 use crate::{
+	MutexedConfig,
 	button::{
 		Button,
-		Click,
+		Event,
 	},
-	config::command::{
-		Command,
-		ConfigChange,
-		ConfigKey,
+	config::{
+		ButtonAction,
+		command::{
+			Command,
+			ConfigChange,
+			ConfigKey,
+			ConfigValue,
+		},
 	},
+	midi,
+	send_midi_packet,
 	send_request,
 };
 
 // Length of a tick.
 const SAMPLE_PERIOD_MS: u32 = 1;
 const SAMPLE_PERIOD: Duration = Duration::from_millis(SAMPLE_PERIOD_MS as u64);
-const MULTIPRESS_TIMEOUT_TICKS: u32 = 300; // 300 ticks
+const MULTIPRESS_TIMEOUT_TICKS: u32 = 250; // 300 ticks
+const HOLD_THRESHOLD_TICKS: u32 = 400;
 
 pub struct ButtonPins {
 	pub button0: Peri<'static, PB0>,
@@ -43,7 +52,7 @@ pub struct ButtonPins {
 }
 
 #[embassy_executor::task]
-pub async fn buttons_task(pins: ButtonPins) {
+pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPins) {
 	let mut button_pins = [
 		Input::new(pins.button0, Pull::Up),
 		Input::new(pins.button1, Pull::Up),
@@ -52,33 +61,129 @@ pub async fn buttons_task(pins: ButtonPins) {
 	];
 
 	let mut buttons = [(); 4].map(|_| Button::new());
+	let mut delayed_packets = ArrayVec::<[u8; 4], 4>::new();
 
 	let mut ticks = 0;
 	loop {
 		let start = Instant::now();
+
+		let button_configs = device_config.lock().await.active_preset().buttons;
+
+		// Send queued packets from the last iteration.
+		for &packet in &delayed_packets {
+			send_midi_packet(packet).await;
+		}
+		delayed_packets.clear();
+
 		let mut readings = [false; 4];
 		for (pin, val) in button_pins.iter_mut().zip(&mut readings) {
 			*val = pin.is_high();
 		}
 
-		for (i, (reading, button)) in readings.into_iter().zip(&mut buttons).enumerate() {
-			if let Some(click) = button.update(reading, ticks, MULTIPRESS_TIMEOUT_TICKS) {
-				match click {
-					Click::Single | Click::Double | Click::Triple => {
-						send_request(
-							false,
-							Command::SetConfig {
-								changes: [ConfigChange {
-									key: ConfigKey::Preset,
-									value: i as u8,
-								}]
-								.into_iter()
-								.collect(),
-							},
-						)
-						.await;
+		for (reading, (button, button_config)) in readings
+			.into_iter()
+			.zip(buttons.iter_mut().zip(&button_configs))
+		{
+			let Some(click) = button.update(
+				reading,
+				ticks,
+				MULTIPRESS_TIMEOUT_TICKS,
+				HOLD_THRESHOLD_TICKS,
+			) else {
+				continue;
+			};
+
+			match click {
+				Event::Hold => {
+					match button_config.hold {
+						ButtonAction::None => (),
+
+						ButtonAction::NextPreset => send_request(false, Command::NextPreset).await,
+						ButtonAction::PreviousPreset => {
+							send_request(false, Command::PreviousPreset).await
+						}
+						ButtonAction::Preset { preset } => {
+							send_request(
+								false,
+								Command::SetConfig {
+									changes: ArrayVec::from_iter([ConfigChange {
+										key: ConfigKey::Preset,
+										value: ConfigValue::U8(preset),
+									}]),
+								},
+							)
+							.await;
+						}
+
+						ButtonAction::Cc { cc, channel } => {
+							// Start holding, we'll put the CC off at a release event.
+							send_midi_packet(midi::cc(cc, channel, 127)).await;
+						}
+
+						ButtonAction::Note { note, channel } => {
+							// Start holding, we'll put the note off at a release event.
+							send_midi_packet(midi::note_on(note, 100, channel)).await;
+						}
 					}
 				}
+
+				// Hold released
+				Event::Released { count: 0 } => match button_config.hold {
+					ButtonAction::Cc { cc, channel } => {
+						send_midi_packet(midi::cc(cc, channel, 0)).await;
+					}
+
+					ButtonAction::Note { note, channel } => {
+						send_midi_packet(midi::note_off(note, channel)).await;
+					}
+
+					ButtonAction::None
+					| ButtonAction::NextPreset
+					| ButtonAction::PreviousPreset
+					| ButtonAction::Preset { .. } => (),
+				},
+
+				// Single, double or triple click
+				Event::Released { count } => {
+					match button_config.clicks[count as usize] {
+						ButtonAction::None => (),
+
+						ButtonAction::NextPreset => {
+							send_request(false, Command::NextPreset).await;
+						}
+						ButtonAction::PreviousPreset => {
+							send_request(false, Command::PreviousPreset).await;
+						}
+						ButtonAction::Preset { preset } => {
+							send_request(
+								false,
+								Command::SetConfig {
+									changes: ArrayVec::from_iter([ConfigChange {
+										key: ConfigKey::Preset,
+										value: ConfigValue::U8(preset),
+									}]),
+								},
+							)
+							.await;
+						}
+
+						ButtonAction::Cc { channel, cc } => {
+							// Turn the CC off in the next tick.
+							delayed_packets.push(midi::cc(cc, channel, 0));
+
+							send_midi_packet(midi::cc(cc, channel, 127)).await;
+						}
+
+						ButtonAction::Note { note, channel } => {
+							// Turn the note off in the next tick.
+							delayed_packets.push(midi::note_off(note, channel));
+
+							send_midi_packet(midi::note_on(note, 100, channel)).await;
+						}
+					}
+				}
+
+				Event::Pressed => (),
 			}
 		}
 

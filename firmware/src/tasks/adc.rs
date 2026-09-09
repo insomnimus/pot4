@@ -11,23 +11,18 @@ use embassy_stm32::{
 		PA1,
 		PA2,
 		PA3,
-		USB,
 	},
-	usb::Driver as UsbDriver,
 };
 use embassy_time::{
 	Duration,
 	Instant,
 	Timer,
 };
-use embassy_usb::{
-	class::midi::Sender as MidiSender,
-	driver::EndpointError,
-};
 
 use crate::{
 	MutexedConfig,
 	pot::Pot,
+	send_midi_packet,
 };
 
 const SAMPLING_RATE: i32 = 2000;
@@ -48,23 +43,15 @@ pub struct AdcPins {
 pub async fn adc_task(
 	device_config: &'static MutexedConfig,
 	mut adc: Adc<'static, ADC1>,
-	mut midi_sender: MidiSender<'static, UsbDriver<'static, USB>>,
 	mut p: AdcPins,
 ) {
-	let mut pots = [(); 4].map(|_| init_pot());
+	let mut pots = [(); 4].map(|_| {
+		Pot::<ADC_AVERAGE_WINDOW>::new(SAMPLING_RATE, ADC_INPUT_RANGE, MOVEMENT_THRESHOLD)
+	});
 
 	info!("Task adc started");
-	let mut active = false;
 
 	loop {
-		if !active {
-			info!("adc: waiting for activation");
-			pots.fill_with(init_pot);
-			midi_sender.wait_connection().await;
-			info!("adc: activated");
-			active = true;
-		}
-
 		let start = Instant::now();
 
 		let pot_samples = [
@@ -81,15 +68,7 @@ pub async fn adc_task(
 		{
 			if let Some(value) = pot.update(sample as i32) {
 				for packet in pot_config.create_cc_packets(&pot_configs, value) {
-					if let Err(e) = midi_sender.write_packet(&packet).await {
-						match e {
-							EndpointError::Disabled => {
-								active = false;
-								info!("adc: disabled");
-							}
-							_ => defmt::error!("midi write error: {}", e),
-						}
-					}
+					send_midi_packet(packet).await;
 				}
 			}
 		}
@@ -101,8 +80,4 @@ pub async fn adc_task(
 			Timer::after(period - elapsed).await;
 		}
 	}
-}
-
-fn init_pot() -> Pot<ADC_AVERAGE_WINDOW> {
-	Pot::<ADC_AVERAGE_WINDOW>::new(SAMPLING_RATE, ADC_INPUT_RANGE, MOVEMENT_THRESHOLD)
 }

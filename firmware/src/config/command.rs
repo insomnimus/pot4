@@ -6,6 +6,10 @@ use arrayvec::{
 };
 use defmt::Format;
 
+use super::{
+	ButtonAction,
+	ButtonGesture,
+};
 use crate::Response;
 
 const MAX_CHANGES: usize = 13; // 3 per pot, 1 for preset
@@ -26,6 +30,8 @@ pub enum ParseError {
 	TooManyChanges,
 	CommandTakesNoArgs,
 	MissingArgs,
+	InvalidButton,
+	InvalidButtonGesture,
 }
 
 impl ParseError {
@@ -46,6 +52,8 @@ impl ParseError {
 			PresetNameTooLong => "Preset name too long",
 			CommandTakesNoArgs => "Command takes no args",
 			MissingArgs => "error Missing one or more arguments",
+			InvalidButton => "error Invalid button",
+			InvalidButtonGesture => "error Invalid button gesture",
 		};
 
 		let mut buf = Response::new();
@@ -77,12 +85,17 @@ pub enum Command {
 		preset: u8,
 		changes: ArrayVec<PresetConfigChange, MAX_PRESET_CHANGES>,
 	},
+
 	FactoryReset,
 	Beep {
 		fq: u16,
 		duration: u16,
 		duty: Option<f32>,
 	},
+
+	// Internal commands (no protocol exists for these)
+	NextPreset,
+	PreviousPreset,
 }
 
 impl Command {
@@ -200,10 +213,10 @@ impl Command {
 	}
 }
 
-#[derive(Format, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct ConfigChange {
 	pub key: ConfigKey,
-	pub value: u8,
+	pub value: ConfigValue,
 }
 
 impl ConfigChange {
@@ -213,32 +226,19 @@ impl ConfigChange {
 			.ok_or(ParseError::InvalidAssignment)?;
 
 		let key = ConfigKey::parse(key)?;
-		let value = match key {
-			ConfigKey::PotCc(_) => parse_value(value, 127)?,
-			ConfigKey::PotChan(_) => parse_value(value, 15)?,
-			ConfigKey::Preset => parse_value(value, 3)?,
-			ConfigKey::PotTriggers(_) => {
-				let mut val = 0u8;
-
-				for n in value.split(',') {
-					let shift = parse_value(n, 3)?;
-					val |= 1 << shift;
-				}
-
-				val
-			}
-		};
+		let value = ConfigValue::parse(value, key)?;
 
 		Ok(Self { key, value })
 	}
 }
 
-#[derive(Format, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub enum ConfigKey {
 	PotCc(u8),
 	PotChan(u8),
 	PotTriggers(u8),
 	Preset,
+	Button { button: u8, gesture: ButtonGesture },
 }
 
 impl ConfigKey {
@@ -266,18 +266,24 @@ impl ConfigKey {
 	}
 }
 
-#[derive(Format, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub enum PresetConfigKey {
 	PotCc(u8),
 	PotChan(u8),
 	PotTriggers(u8),
 	Name,
+	Button { button: u8, gesture: ButtonGesture },
 }
 
 impl PresetConfigKey {
 	fn parse(key: &str) -> Result<Self, ParseError> {
 		if key == "name" {
 			return Ok(Self::Name);
+		}
+
+		if key.starts_with("btn") {
+			let (button, gesture) = parse_button_key(key)?;
+			return Ok(Self::Button { button, gesture });
 		}
 
 		let rest = key.strip_prefix("pot").ok_or(ParseError::UnknownKey)?;
@@ -301,7 +307,7 @@ impl PresetConfigKey {
 
 pub struct PresetConfigChange {
 	pub key: PresetConfigKey,
-	pub value: PresetConfigValue,
+	pub value: ConfigValue,
 }
 
 impl PresetConfigChange {
@@ -311,20 +317,44 @@ impl PresetConfigChange {
 			.ok_or(ParseError::InvalidAssignment)?;
 
 		let key = PresetConfigKey::parse(key)?;
-		let value = PresetConfigValue::parse(value, key)?;
+		let value = ConfigValue::preset_parse(value, key)?;
 
 		Ok(Self { key, value })
 	}
 }
 
 #[derive(Copy, Clone)]
-pub enum PresetConfigValue {
+pub enum ConfigValue {
 	U8(u8),
 	PresetName(ArrayString<32>),
+	ButtonAction(ButtonAction),
 }
 
-impl PresetConfigValue {
-	fn parse(s: &str, key: PresetConfigKey) -> Result<Self, ParseError> {
+impl ConfigValue {
+	fn parse(s: &str, key: ConfigKey) -> Result<Self, ParseError> {
+		let val = match key {
+			ConfigKey::Preset => {
+				Self::U8(parse_value(s, 3).map_err(|_| ParseError::InvalidPreset)?)
+			}
+			ConfigKey::PotCc(_) => Self::U8(parse_value(s, 127)?),
+			ConfigKey::PotChan(_) => Self::U8(parse_value(s, 15)?),
+			ConfigKey::PotTriggers(_) => {
+				let mut val = 0u8;
+
+				for n in s.split(',') {
+					let n = parse_value(n, 3)?;
+					val |= 1 << n;
+				}
+
+				Self::U8(val)
+			}
+			ConfigKey::Button { .. } => Self::ButtonAction(parse_button_action(s)?),
+		};
+
+		Ok(val)
+	}
+
+	fn preset_parse(s: &str, key: PresetConfigKey) -> Result<Self, ParseError> {
 		let val = match key {
 			PresetConfigKey::Name => Self::PresetName(
 				ArrayString::try_from(s).map_err(|_| ParseError::PresetNameTooLong)?,
@@ -341,6 +371,7 @@ impl PresetConfigValue {
 
 				Self::U8(val)
 			}
+			PresetConfigKey::Button { .. } => Self::ButtonAction(parse_button_action(s)?),
 		};
 
 		Ok(val)
@@ -349,15 +380,24 @@ impl PresetConfigValue {
 	pub fn unwrap_u8(self) -> u8 {
 		match self {
 			Self::U8(val) => val,
-			_ => defmt::panic!("PresetConfigValue::unwrap_u8 called on a non-U8 variant"),
+			_ => defmt::panic!("ConfigValue::unwrap_u8 called on a non-U8 variant"),
 		}
 	}
 
 	pub fn unwrap_preset_name(self) -> ArrayString<32> {
 		match self {
 			Self::PresetName(val) => val,
+			_ => {
+				defmt::panic!("ConfigValue::unwrap_preset_name called on a non-PresetName variant")
+			}
+		}
+	}
+
+	pub fn unwrap_button_action(self) -> ButtonAction {
+		match self {
+			Self::ButtonAction(val) => val,
 			_ => defmt::panic!(
-				"PresetConfigValue::unwrap_preset_name called on a non-PresetName variant"
+				"ConfigValue::unwrap_button_action called on a non-ButtonAction variant"
 			),
 		}
 	}
@@ -386,4 +426,74 @@ fn parse_value<T: FromStr + PartialOrd>(value: &str, max: T) -> Result<T, ParseE
 	} else {
 		Err(ParseError::ValueOutOfRange)
 	}
+}
+
+fn parse_button_action(s: &str) -> Result<ButtonAction, ParseError> {
+	fn last<'a>(mut iter: core::str::Split<'a, char>) -> Result<&'a str, ParseError> {
+		let s = iter.next().ok_or(ParseError::InvalidValue)?;
+		if iter.next().is_some() {
+			Err(ParseError::InvalidValue)
+		} else {
+			Ok(s)
+		}
+	}
+
+	let x = match s {
+		"none" => ButtonAction::None,
+		"next-preset" => ButtonAction::NextPreset,
+		"prev-preset" => ButtonAction::PreviousPreset,
+		_ => {
+			let mut args = s.split('|');
+
+			match args.next().ok_or(ParseError::InvalidValue)? {
+				"preset" => {
+					let preset = last(args)?;
+					ButtonAction::Preset {
+						preset: parse_value(preset, 3).map_err(|_| ParseError::InvalidValue)?,
+					}
+				}
+
+				"cc" => {
+					let channel = args.next().ok_or(ParseError::InvalidValue)?;
+					let cc = last(args)?;
+
+					ButtonAction::Cc {
+						cc: parse_value(cc, 127)?,
+						channel: parse_value(channel, 15)?,
+					}
+				}
+
+				"note" => {
+					let channel = args.next().ok_or(ParseError::InvalidValue)?;
+					let note = last(args)?;
+
+					ButtonAction::Note {
+						channel: parse_value(channel, 15)?,
+						note: parse_value(note, 127)?,
+					}
+				}
+
+				_ => return Err(ParseError::InvalidValue),
+			}
+		}
+	};
+
+	Ok(x)
+}
+
+fn parse_button_key(s: &str) -> Result<(u8, ButtonGesture), ParseError> {
+	let s = s.strip_prefix("btn").ok_or(ParseError::InvalidAssignment)?;
+	let (button, subkey) = s.split_once('.').ok_or(ParseError::InvalidButton)?;
+
+	let button = parse_value(button, 3).map_err(|_| ParseError::InvalidButton)?;
+
+	let gesture = match subkey {
+		"1" => ButtonGesture::Click(1),
+		"2" => ButtonGesture::Click(2),
+		"3" => ButtonGesture::Click(3),
+		"hold" => ButtonGesture::Hold,
+		_ => return Err(ParseError::InvalidButtonGesture),
+	};
+
+	Ok((button, gesture))
 }

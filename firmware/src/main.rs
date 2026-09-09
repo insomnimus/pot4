@@ -3,6 +3,7 @@
 
 mod button;
 mod config;
+mod midi;
 mod pot;
 mod storage;
 mod tasks;
@@ -104,19 +105,18 @@ static MSOS_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
 static REQUEST_CHANNEL: Channel<ThreadModeRawMutex, Request, 4> = Channel::new();
 static RESPONSE_CHANNEL: Channel<ThreadModeRawMutex, Response, 4> = Channel::new();
 static BEEP_CHANNEL: Channel<ThreadModeRawMutex, Beep, 2> = Channel::new();
+static MIDI_PACKET_CHANNEL: Channel<ThreadModeRawMutex, [u8; 4], 4> = Channel::new();
 
 async fn send_request(is_external: bool, cmd: Command) {
 	REQUEST_CHANNEL.send(Request::new(cmd, is_external)).await;
 }
 
-async fn beep(fq: u16, duration_ms: u16, duty: f32) {
-	BEEP_CHANNEL
-		.send(Beep {
-			fq,
-			duration_ms,
-			duty,
-		})
-		.await;
+fn beep(fq: u16, duration_ms: u16, duty: f32) {
+	let _ = BEEP_CHANNEL.try_send(Beep {
+		fq,
+		duration_ms,
+		duty,
+	});
 }
 
 async fn play_boot_sound() {
@@ -127,9 +127,13 @@ async fn play_boot_sound() {
 	];
 
 	for (fq, duration_ms) in melody {
-		beep(fq * 2, duration_ms, 0.01).await;
+		beep(fq * 2, duration_ms, 0.01);
 		Timer::after_millis(duration_ms as _).await;
 	}
+}
+
+async fn send_midi_packet(packet: [u8; 4]) {
+	let _ = MIDI_PACKET_CHANNEL.send(packet).await;
 }
 
 #[embassy_executor::main]
@@ -225,6 +229,9 @@ async fn main(spawner: Spawner) {
 	spawner.spawn(tasks::beep::beep_task(pwm, BEEP_CHANNEL.receiver()).unwrap());
 	spawner.spawn(tasks::usb::usb_task(usb).unwrap());
 	spawner.spawn(
+		tasks::midi_sender::midi_sender_task(midi_sender, MIDI_PACKET_CHANNEL.receiver()).unwrap(),
+	);
+	spawner.spawn(
 		tasks::config_sender::config_sender_task(config_sender, RESPONSE_CHANNEL.receiver())
 			.unwrap(),
 	);
@@ -236,7 +243,6 @@ async fn main(spawner: Spawner) {
 		tasks::adc::adc_task(
 			device_config,
 			adc,
-			midi_sender,
 			tasks::adc::AdcPins {
 				PA0: p.PA0,
 				PA1: p.PA1,
@@ -247,12 +253,15 @@ async fn main(spawner: Spawner) {
 		.unwrap(),
 	);
 	spawner.spawn(
-		tasks::buttons::buttons_task(tasks::buttons::ButtonPins {
-			button0: p.PB0,
-			button1: p.PB1,
-			button2: p.PB2,
-			button3: p.PB3,
-		})
+		tasks::buttons::buttons_task(
+			device_config,
+			tasks::buttons::ButtonPins {
+				button0: p.PB0,
+				button1: p.PB1,
+				button2: p.PB2,
+				button3: p.PB3,
+			},
+		)
 		.unwrap(),
 	);
 	spawner.spawn(
@@ -260,7 +269,6 @@ async fn main(spawner: Spawner) {
 			device_config,
 			storage,
 			REQUEST_CHANNEL.receiver(),
-			BEEP_CHANNEL.sender(),
 			RESPONSE_CHANNEL.sender(),
 		)
 		.unwrap(),

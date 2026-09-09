@@ -21,7 +21,7 @@ Powered over the user USB port on the board.
 ### Knobs and Buttons
 The 4 knobs are assigned to a MIDI channel and CC number each. Turning a knob sends the relevant MIDI CC event over the USB MIDI connection.
 
-The buttons select presets, described later in this document.
+The 4 buttons are programmable and can do a lot of things (described later in this document).
 
 ## The Firmware
 The firmware is written in Rust using the Embassy ecosystem.
@@ -48,7 +48,19 @@ There are 2 sources of configuration:
 A number ranging from 0 to 3, this stores the active preset.
 
 ### Config: Presets
-There are 4 preset slots. Each slot has a name (maximum 32 bytes), and configuration for each knob (CC, midi channel, and other pots it triggers).
+There are 4 preset slots. Each slot has a name (maximum 32 bytes), configuration for each knob (CC, midi channel, and other pots it triggers), and configuration for 4 buttons (per button: single click, double click, triple click and hold actions).
+
+### Config: Button Gestures & Actions
+Each one of the 4 buttons can be programmed to perform an action per gesture.
+Gestures consist of single clicks, double clicks, triple clicks, and holds.
+Thus, a single button can do 4 different things depending on how you press it.
+
+Currently available actions are as follows.
+-  Select Preset: Selects a preset
+- Next Preset: Switches to the next preset
+- Previous Preset: Switches to the previous preset
+- CC: Emits the specified CC event when triggered (with a value of 127), setting a 0 value right afterwards. (In case the gesture is a hold, the zero value will be emitted when the button gets released).
+- Note: Emits a specified note at maximum velocity, then turning it off almost immediately (unless the gesture is a hold).
 
 ## The Configuration Wire Format
 The configuration endpoint uses a UTF-8 text based wire format akin to a shell.
@@ -89,11 +101,11 @@ Optional arguments:
 Examples
 ```
 > config.get
-preset=0;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3
+preset=0;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3;btn0.1=preset|0;btn0.2=preset|0;btn0.3=preset|0;btn0.hold=none;btn1.1=preset|1;btn1.2=preset|1;btn1.3=preset|1;btn1.hold=none;btn2.1=preset|2;btn2.2=preset|2;btn2.3=preset|2;btn2.hold=none;btn3.1=preset|3;btn3.2=preset|3;btn3.3=preset|3;btn3.hold=none
 > config.get preset
 preset=0
 > config.get saved
-preset=3;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3
+preset=3;pot0.cc=9;pot0.chan=0;pot0.triggers=0;pot1.cc=10;pot1.chan=0;pot1.triggers=1;pot2.cc=11;pot2.chan=0;pot2.triggers=2;pot3.cc=12;pot3.chan=0;pot3.triggers=3;btn0.1=preset|0;btn0.2=preset|0;btn0.3=preset|0;btn0.hold=none;btn1.1=preset|1;btn1.2=preset|1;btn1.3=preset|1;btn1.hold=none;btn2.1=preset|2;btn2.2=preset|2;btn2.3=preset|2;btn2.hold=none;btn3.1=preset|3;btn3.2=preset|3;btn3.3=preset|3;btn3.hold=none
 > config.get saved.preset
 preset=3
 ```
@@ -111,6 +123,18 @@ ok
 > config.set pot0.triggers=0,2
 ok
 > config.set preset=2;pot0.chan=12
+ok
+# Make holding button 0 produce a note 64 on channel 2 (zero based)
+> config.set btn0.hold=note|2|64
+ok
+# Make it so single clicks on button 3 change to the next preset
+> config.set btn3.1=next-preset
+ok
+# Make double clicking on button 0 change to the first preset
+> config.set btn0.2=preset|0
+ok
+# Triple click on button 1 to emit CC 20 on channel 0
+> config.set btn1.3=cc|0|20
 ok
 ```
 
