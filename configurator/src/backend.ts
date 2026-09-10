@@ -8,6 +8,7 @@ export interface DeviceConfig {
 export interface Preset {
 	name: string;
 	pots: [PotConfig, PotConfig, PotConfig, PotConfig];
+	buttons: [ButtonConfig, ButtonConfig, ButtonConfig, ButtonConfig];
 }
 
 export interface PotConfig {
@@ -16,20 +17,40 @@ export interface PotConfig {
 	triggers: [boolean, boolean, boolean, boolean];
 }
 
+export interface ButtonConfig {
+	clicks: [ButtonAction, ButtonAction, ButtonAction];
+	hold: ButtonAction;
+}
+
+export type ButtonAction =
+	| { type: "None" }
+	| { type: "Preset"; data: { preset: number } }
+	| { type: "NextPreset" }
+	| { type: "PreviousPreset" }
+	| { type: "Cc"; data: { cc: number; channel: number } }
+	| { type: "Note"; data: { note: number; channel: number } };
+
 export type ConfigChange =
 	| { type: "ActivePreset"; data: number }
-	| { type: "Preset"; data: PresetChange };
+	| { type: "Preset"; data: { preset: number; change: PresetChange } };
 
 export type PresetChange =
-	| { type: "Name"; data: { preset: number; name: string } }
+	| { type: "Name"; data: string }
 	| {
 			type: "Pot";
 			data: {
-				preset: number;
 				pot: number;
 				cc: number;
 				channel: number;
 				triggers: [boolean, boolean, boolean, boolean];
+			};
+	  }
+	| {
+			type: "Button";
+			data: {
+				button: number;
+				clicks: [ButtonAction, ButtonAction, ButtonAction];
+				hold: ButtonAction;
 			};
 	  };
 

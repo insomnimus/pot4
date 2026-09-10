@@ -1,5 +1,7 @@
 import {
 	type DeviceConfig,
+	type ButtonAction,
+	type ButtonConfig,
 	connectDevice,
 	getConfig,
 	changeSetting,
@@ -13,6 +15,12 @@ let savedState: DeviceConfig | null = null;
 // Which preset the user is currently viewing/editing.
 let selectedPreset = 0;
 let operationInProgress = false;
+// For the button action pop-up.
+let activeEditingTarget: {
+	buttonIndex: number;
+	gestureType: "click" | "hold";
+	gestureIndex?: number;
+} | null = null;
 
 function updateGui(): void {
 	if (!guiState) {
@@ -23,10 +31,10 @@ function updateGui(): void {
 
 	const presetName = document.getElementById("preset-name") as HTMLInputElement;
 
-	const heading = document.getElementById("preset-heading");
-	if (heading) {
-		heading.textContent = preset.name || `Preset ${selectedPreset + 1} (Unnamed)`;
-	}
+	// const heading = document.getElementById("preset-heading");
+	// if (heading) {
+	// 	heading.textContent = preset.name || `Preset ${selectedPreset + 1} (Unnamed)`;
+	// }
 
 	presetName.value = preset.name;
 
@@ -58,9 +66,38 @@ function updateGui(): void {
 		radio.checked = index === selectedPreset;
 	});
 
+	updateButtonActions();
 	updateUseButton();
 	updatePresetLabels();
 	updateDirtyMarkers();
+}
+
+function updateButtonActions(): void {
+	if (!guiState) {
+		return;
+	}
+
+	const currentPreset = guiState.presets[selectedPreset];
+	const actionButtons = document.querySelectorAll<HTMLButtonElement>(
+		"#button-config .button-action-btn",
+	);
+
+	for (const btn of actionButtons) {
+		const btnIdx = Number(btn.dataset.btn);
+		const gestureType = btn.dataset.gestureType as "click" | "hold";
+		const gestureIndex =
+			btn.dataset.gestureIndex !== undefined ? Number(btn.dataset.gestureIndex) : undefined;
+
+		if (isNaN(btnIdx)) {
+			continue;
+		}
+
+		const action = getButtonAction(currentPreset.buttons[btnIdx], gestureType, gestureIndex);
+		btn.textContent = formatButtonAction(action);
+
+		const dirty = buttonActionIsDirty(selectedPreset, btnIdx, gestureType, gestureIndex);
+		btn.classList.toggle("dirty", dirty);
+	}
 }
 
 function presetIsDirty(index: number): boolean {
@@ -75,7 +112,7 @@ function presetIsDirty(index: number): boolean {
 		return true;
 	}
 
-	return guiPreset.pots.some((pot, potIndex) => {
+	const potsDirty = guiPreset.pots.some((pot, potIndex) => {
 		const savedPot = savedPreset.pots[potIndex];
 
 		if (pot.cc !== savedPot.cc || pot.channel !== savedPot.channel) {
@@ -84,6 +121,17 @@ function presetIsDirty(index: number): boolean {
 
 		// Check triggers.
 		return pot.triggers.some((trig, targetIdx) => trig !== savedPot.triggers[targetIdx]);
+	});
+	if (potsDirty) {
+		return true;
+	}
+
+	return guiPreset.buttons.some((btn, btnIdx) => {
+		const savedBtn = savedPreset.buttons[btnIdx];
+		if (JSON.stringify(btn.hold) !== JSON.stringify(savedBtn.hold)) return true;
+		return btn.clicks.some(
+			(click, clickIdx) => JSON.stringify(click) !== JSON.stringify(savedBtn.clicks[clickIdx]),
+		);
 	});
 }
 
@@ -194,6 +242,153 @@ function updateDirtyMarkers(): void {
 	save.disabled = !isDirty();
 }
 
+function setupButtonConfig(): void {
+	const dialog = document.getElementById("button-action-dialog") as HTMLDialogElement;
+	const form = document.getElementById("button-action-form") as HTMLFormElement;
+	const typeSelect = document.getElementById("action-type-select") as HTMLSelectElement;
+	const cancelBtn = document.getElementById("dialog-cancel-btn") as HTMLButtonElement;
+
+	const paramGroups = document.querySelectorAll<HTMLElement>(
+		"#action-params-container .param-group",
+	);
+
+	function updateVisibleParamFields(): void {
+		const selectedType = typeSelect.value;
+		for (const group of paramGroups) {
+			const matches = group.dataset.action === selectedType;
+			group.hidden = !matches;
+
+			for (const input of group.querySelectorAll<HTMLInputElement>("input")) {
+				input.required = matches;
+			}
+		}
+	}
+
+	typeSelect.addEventListener("change", updateVisibleParamFields);
+
+	// Event delegation for opening the dialog
+	document.getElementById("button-config")?.addEventListener("click", e => {
+		const target = (e.target as HTMLElement).closest<HTMLButtonElement>(".button-action-btn");
+		if (!target || !guiState || operationInProgress) {
+			return;
+		}
+
+		const buttonIndex = Number(target.dataset.btn);
+		const gestureType = target.dataset.gestureType as "click" | "hold";
+		const gestureIndex =
+			target.dataset.gestureIndex !== undefined ? Number(target.dataset.gestureIndex) : undefined;
+
+		activeEditingTarget = { buttonIndex, gestureType, gestureIndex };
+
+		const currentAction = getButtonAction(
+			guiState.presets[selectedPreset].buttons[buttonIndex],
+			gestureType,
+			gestureIndex,
+		);
+
+		// Clear stale data.
+		form.reset();
+
+		// Populate fields based on active state
+		typeSelect.value = currentAction.type;
+		updateVisibleParamFields();
+
+		if (currentAction.type === "Preset") {
+			(document.getElementById("param-preset") as HTMLInputElement).value = String(
+				currentAction.data.preset + 1,
+			);
+		} else if (currentAction.type === "Cc") {
+			(document.getElementById("param-cc-number") as HTMLInputElement).value = String(
+				currentAction.data.cc + 1,
+			);
+			(document.getElementById("param-cc-channel") as HTMLInputElement).value = String(
+				currentAction.data.channel + 1,
+			);
+		} else if (currentAction.type === "Note") {
+			(document.getElementById("param-note-number") as HTMLInputElement).value = String(
+				currentAction.data.note + 1,
+			);
+			(document.getElementById("param-note-channel") as HTMLInputElement).value = String(
+				currentAction.data.channel + 1,
+			);
+		}
+
+		dialog.showModal();
+	});
+
+	cancelBtn.addEventListener("click", () => {
+		dialog.close();
+	});
+
+	form.addEventListener("submit", async e => {
+		e.preventDefault();
+		if (!guiState || !activeEditingTarget || operationInProgress) return;
+
+		const { buttonIndex, gestureType, gestureIndex } = activeEditingTarget;
+		const selectedType = typeSelect.value;
+
+		let newAction: ButtonAction;
+
+		switch (selectedType) {
+			case "None":
+				newAction = { type: "None" };
+				break;
+			case "NextPreset":
+				newAction = { type: "NextPreset" };
+				break;
+			case "PreviousPreset":
+				newAction = { type: "PreviousPreset" };
+				break;
+			case "Preset": {
+				const presetVal =
+					Number((document.getElementById("param-preset") as HTMLInputElement).value) - 1;
+				newAction = { type: "Preset", data: { preset: presetVal } };
+				break;
+			}
+			case "Cc": {
+				const ccVal =
+					Number((document.getElementById("param-cc-number") as HTMLInputElement).value) - 1;
+				const channelVal =
+					Number((document.getElementById("param-cc-channel") as HTMLInputElement).value) - 1;
+				newAction = { type: "Cc", data: { cc: ccVal, channel: channelVal } };
+				break;
+			}
+			case "Note": {
+				const noteVal =
+					Number((document.getElementById("param-note-number") as HTMLInputElement).value) - 1;
+				const channelVal =
+					Number((document.getElementById("param-note-channel") as HTMLInputElement).value) - 1;
+				newAction = { type: "Note", data: { note: noteVal, channel: channelVal } };
+				break;
+			}
+			default:
+				return;
+		}
+
+		const buttonCfg = guiState.presets[selectedPreset].buttons[buttonIndex];
+		setButtonAction(buttonCfg, newAction, gestureType, gestureIndex);
+
+		dialog.close();
+		updateGui();
+
+		// Dispatch change to backend
+		await changeSetting({
+			type: "Preset",
+			data: {
+				preset: selectedPreset,
+				change: {
+					type: "Button",
+					data: {
+						button: buttonIndex,
+						clicks: buttonCfg.clicks,
+						hold: buttonCfg.hold,
+					},
+				},
+			},
+		});
+	});
+}
+
 function setupPresetName(): void {
 	const input = document.getElementById("preset-name") as HTMLInputElement;
 
@@ -215,8 +410,11 @@ function setupPresetName(): void {
 		await changeSetting({
 			type: "Preset",
 			data: {
-				type: "Name",
-				data: { preset: selectedPreset, name: input.value },
+				preset: selectedPreset,
+				change: {
+					type: "Name",
+					data: input.value,
+				},
 			},
 		});
 	});
@@ -266,13 +464,15 @@ function setupPotInputs(): void {
 			await changeSetting({
 				type: "Preset",
 				data: {
-					type: "Pot",
-					data: {
-						preset: selectedPreset,
-						pot: potIndex,
-						cc: pot.cc,
-						channel: pot.channel,
-						triggers: pot.triggers,
+					preset: selectedPreset,
+					change: {
+						type: "Pot",
+						data: {
+							pot: potIndex,
+							cc: pot.cc,
+							channel: pot.channel,
+							triggers: pot.triggers,
+						},
 					},
 				},
 			});
@@ -305,13 +505,15 @@ function setupPotInputs(): void {
 			await changeSetting({
 				type: "Preset",
 				data: {
-					type: "Pot",
-					data: {
-						preset: selectedPreset,
-						pot: sourcePotIndex,
-						cc: pot.cc,
-						channel: pot.channel,
-						triggers: pot.triggers,
+					preset: selectedPreset,
+					change: {
+						type: "Pot",
+						data: {
+							pot: sourcePotIndex,
+							cc: pot.cc,
+							channel: pot.channel,
+							triggers: pot.triggers,
+						},
 					},
 				},
 			});
@@ -532,6 +734,69 @@ function announceToScreenReader(message: string): void {
 	}, 50);
 }
 
+function formatButtonAction(action: ButtonAction): string {
+	switch (action.type) {
+		case "None":
+			return "None";
+		case "NextPreset":
+			return "Next preset";
+		case "PreviousPreset":
+			return "Previous preset";
+		case "Preset":
+			return `Select preset ${action.data.preset + 1}`;
+		case "Cc":
+			return `CC ${action.data.cc + 1} on channel ${action.data.channel + 1}`;
+		case "Note":
+			return `Note ${action.data.note + 1} on channel ${action.data.channel + 1}`;
+	}
+}
+
+function getButtonAction(
+	buttonCfg: ButtonConfig,
+	gestureType: "click" | "hold",
+	gestureIndex?: number,
+): ButtonAction {
+	if (gestureType === "hold") {
+		return buttonCfg.hold;
+	}
+	return buttonCfg.clicks[gestureIndex ?? 0];
+}
+
+function setButtonAction(
+	buttonCfg: ButtonConfig,
+	action: ButtonAction,
+	gestureType: "click" | "hold",
+	gestureIndex?: number,
+): void {
+	if (gestureType === "hold") {
+		buttonCfg.hold = action;
+	} else if (gestureIndex !== undefined) {
+		buttonCfg.clicks[gestureIndex] = action;
+	}
+}
+
+function buttonActionIsDirty(
+	presetIndex: number,
+	buttonIndex: number,
+	gestureType: "click" | "hold",
+	gestureIndex?: number,
+): boolean {
+	if (!guiState || !savedState) return false;
+
+	const guiAction = getButtonAction(
+		guiState.presets[presetIndex].buttons[buttonIndex],
+		gestureType,
+		gestureIndex,
+	);
+	const savedAction = getButtonAction(
+		savedState.presets[presetIndex].buttons[buttonIndex],
+		gestureType,
+		gestureIndex,
+	);
+
+	return JSON.stringify(guiAction) !== JSON.stringify(savedAction);
+}
+
 function setupKeyboardShortcuts(): void {
 	window.addEventListener("keydown", (event: KeyboardEvent) => {
 		// Ctrl+letter combos
@@ -592,6 +857,7 @@ try {
 	setupPotInputs();
 	setupPresetSelection();
 	setupUseButton();
+	setupButtonConfig();
 
 	for (const [id, func] of [
 		["reset", reset],

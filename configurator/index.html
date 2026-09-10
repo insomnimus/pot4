@@ -24,7 +24,6 @@
 				Connecting to Pot4 MIDI CC Controller...
 			</div>
 
-			<!-- Added wrapper for top action buttons -->
 			<div class="actions-row">
 				<button id="reconnect" type="button">Reconnect</button>
 				<button id="reset" type="button">Discard Changes</button>
@@ -56,13 +55,14 @@
 				</label>
 			</fieldset>
 
-			<section id="controls" aria-labelledby="preset-heading">
-				<h2 id="preset-heading">Preset 1</h2>
+			<section id="controls">
+				<!-- <h2 id="preset-heading">Preset 1</h2> -->
 
-				<!-- Added wrapper for preset name, input, and Use button -->
 				<div class="preset-name-group">
-					<label for="preset-name">Preset name</label>
-					<input id="preset-name" type="text" maxlength="32" />
+					<h2 id="preset-heading">
+						<!-- <label for="preset-name">Preset name</label> -->
+						<input id="preset-name" type="text" maxlength="32" autocomplete="off" />
+					</h2>
 					<button
 						id="use-preset"
 						type="button"
@@ -222,6 +222,254 @@
 						</tr>
 					</tbody>
 				</table>
+
+				<section id="button-config">
+					<h3>Button Configuration</h3>
+					<table>
+						<thead>
+							<tr>
+								<th scope="col">Gesture</th>
+								<th scope="col">Button 1</th>
+								<th scope="col">Button 2</th>
+								<th scope="col">Button 3</th>
+								<th scope="col">Button 4</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<th scope="row">Single Press</th>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="0"
+										data-gesture-type="click"
+										data-gesture-index="0"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="1"
+										data-gesture-type="click"
+										data-gesture-index="0"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="2"
+										data-gesture-type="click"
+										data-gesture-index="0"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="3"
+										data-gesture-type="click"
+										data-gesture-index="0"
+									>
+										None
+									</button>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">Double Press</th>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="0"
+										data-gesture-type="click"
+										data-gesture-index="1"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="1"
+										data-gesture-type="click"
+										data-gesture-index="1"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="2"
+										data-gesture-type="click"
+										data-gesture-index="1"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="3"
+										data-gesture-type="click"
+										data-gesture-index="1"
+									>
+										None
+									</button>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">Triple Press</th>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="0"
+										data-gesture-type="click"
+										data-gesture-index="2"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="1"
+										data-gesture-type="click"
+										data-gesture-index="2"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="2"
+										data-gesture-type="click"
+										data-gesture-index="2"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="3"
+										data-gesture-type="click"
+										data-gesture-index="2"
+									>
+										None
+									</button>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">Hold</th>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="0"
+										data-gesture-type="hold"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="1"
+										data-gesture-type="hold"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="2"
+										data-gesture-type="hold"
+									>
+										None
+									</button>
+								</td>
+								<td>
+									<button
+										type="button"
+										class="button-action-btn"
+										data-btn="3"
+										data-gesture-type="hold"
+									>
+										None
+									</button>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</section>
+
+				<dialog id="button-action-dialog" aria-labelledby="dialog-title">
+					<form id="button-action-form" method="dialog">
+						<h4 id="dialog-title">Configure Button Action</h4>
+
+						<div>
+							<label for="action-type-select">Action Type:</label>
+							<select id="action-type-select" required>
+								<option value="None">None</option>
+								<option value="Preset">Select Preset</option>
+								<option value="NextPreset">Next Preset</option>
+								<option value="PreviousPreset">Previous Preset</option>
+								<option value="Cc">CC</option>
+								<option value="Note">Note</option>
+							</select>
+						</div>
+
+						<div id="action-params-container">
+							<!-- Preset Parameters -->
+							<div class="param-group" data-action="Preset" hidden>
+								<label for="param-preset">Preset Number (1-4):</label>
+								<input type="number" id="param-preset" min="1" max="4" value="1" required />
+							</div>
+
+							<!-- CC Parameters -->
+							<div class="param-group" data-action="Cc" hidden>
+								<label for="param-cc-number">CC Number (1-128):</label>
+								<input type="number" id="param-cc-number" min="1" max="128" value="1" required />
+								<label for="param-cc-channel">Channel (1-16):</label>
+								<input type="number" id="param-cc-channel" min="1" max="16" value="1" required />
+							</div>
+
+							<!-- Note Parameters -->
+							<div class="param-group" data-action="Note" hidden>
+								<label for="param-note-number">Note Number (1-128):</label>
+								<input type="number" id="param-note-number" min="1" max="128" value="1" required />
+								<label for="param-note-channel">Channel (1-16):</label>
+								<input type="number" id="param-note-channel" min="1" max="16" value="1" required />
+							</div>
+						</div>
+
+						<menu>
+							<button type="submit" id="dialog-save-btn">OK</button>
+							<button type="button" id="dialog-cancel-btn">Cancel</button>
+						</menu>
+					</form>
+				</dialog>
 
 				<button id="save" type="button" disabled>Persist current configuration</button>
 			</section>

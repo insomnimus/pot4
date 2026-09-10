@@ -1,4 +1,7 @@
-use std::fmt::Write;
+use std::fmt::{
+	self,
+	Write,
+};
 
 use serde::{
 	Deserialize,
@@ -27,6 +30,12 @@ pub enum ConfigParseError {
 	// NonUtf8(Vec<u8>),
 	#[error("Invalid value: {0}")]
 	InvalidValue(String),
+
+	#[error("Invalid button: {0}")]
+	InvalidButton(String),
+
+	#[error("Invalid button action: {0}")]
+	InvalidButtonAction(String),
 }
 
 #[derive(Debug, Copy, Clone, Serialize)]
@@ -36,6 +45,12 @@ pub struct PotConfig {
 	pub triggers: [bool; 4],
 }
 
+#[derive(Debug, Copy, Clone, Serialize)]
+pub struct ButtonConfig {
+	clicks: [ButtonAction; 3],
+	hold: ButtonAction,
+}
+
 #[derive(Copy, Clone, Default)]
 struct OptionalPotConfig {
 	cc: Option<u8>,
@@ -43,15 +58,23 @@ struct OptionalPotConfig {
 	triggers: Option<[bool; 4]>,
 }
 
+#[derive(Copy, Clone, Default)]
+struct OptionalButtonConfig {
+	clicks: [Option<ButtonAction>; 4],
+	hold: Option<ButtonAction>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Preset {
-	name: String,
+	pub name: String,
 	pub pots: [PotConfig; 4],
+	pub buttons: [ButtonConfig; 4],
 }
 
 impl Preset {
 	pub fn parse(s: &str) -> Result<Self, ConfigParseError> {
 		let mut pots = [OptionalPotConfig::default(); 4];
+		let mut buttons = [OptionalButtonConfig::default(); 4];
 		let mut name = String::with_capacity(32);
 
 		for key_value in s.split(';') {
@@ -73,6 +96,25 @@ impl Preset {
 			if key == "name" {
 				name.clear();
 				name += value;
+				continue;
+			}
+
+			if let Some(button_and_subkey) = key.strip_prefix("btn") {
+				let (button, subkey) = button_and_subkey
+					.split_once('.')
+					.ok_or_else(|| ConfigParseError::InvalidButton(key_value.into()))?;
+				let button = parse_value(button, 3)?;
+				let action = parse_button_action(value)
+					.ok_or_else(|| ConfigParseError::InvalidButtonAction(key_value.into()))?;
+
+				match subkey {
+					"1" => buttons[button as usize].clicks[0] = Some(action),
+					"2" => buttons[button as usize].clicks[1] = Some(action),
+					"3" => buttons[button as usize].clicks[2] = Some(action),
+					"hold" => buttons[button as usize].hold = Some(action),
+					_ => return Err(ConfigParseError::InvalidButtonAction(key_value.into())),
+				}
+
 				continue;
 			}
 
@@ -120,6 +162,10 @@ impl Preset {
 			channel: 0,
 			triggers: [false; 4],
 		}; 4];
+		let mut bs = [ButtonConfig {
+			clicks: [ButtonAction::None; 3],
+			hold: ButtonAction::None,
+		}; 4];
 
 		for (optional, real) in pots.into_iter().zip(ps.iter_mut()) {
 			*real = PotConfig {
@@ -135,7 +181,22 @@ impl Preset {
 			};
 		}
 
-		Ok(Self { name, pots: ps })
+		for (optional, real) in buttons.iter().zip(&mut bs) {
+			for (optional_click, real_click) in optional.clicks.iter().zip(&mut real.clicks) {
+				*real_click =
+					optional_click.ok_or_else(|| ConfigParseError::Incomplete(s.into()))?;
+			}
+
+			real.hold = optional
+				.hold
+				.ok_or_else(|| ConfigParseError::Incomplete(s.into()))?;
+		}
+
+		Ok(Self {
+			name,
+			pots: ps,
+			buttons: bs,
+		})
 	}
 }
 
@@ -149,22 +210,23 @@ pub struct DeviceConfig {
 #[serde(tag = "type", content = "data")]
 pub enum ConfigChange {
 	ActivePreset(u8),
-	Preset(PresetChange),
+	Preset { preset: u8, change: PresetChange },
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum PresetChange {
-	Name {
-		preset: u8,
-		name: String,
-	},
+	Name(String),
 	Pot {
-		preset: u8,
 		pot: u8,
 		cc: u8,
 		channel: u8,
 		triggers: [bool; 4],
+	},
+	Button {
+		button: u8,
+		clicks: [ButtonAction; 3],
+		hold: ButtonAction,
 	},
 }
 
@@ -172,10 +234,11 @@ impl ConfigChange {
 	pub fn to_command_string(&self) -> String {
 		let s = match self {
 			Self::ActivePreset(preset) => format!("config.set preset={preset}"),
-			Self::Preset(preset_change) => match preset_change {
-				PresetChange::Name { preset, name } => format!("preset.set {preset} name={name}"),
+
+			Self::Preset { preset, change } => match change {
+				PresetChange::Name(name) => format!("preset.set {preset} name={name}"),
+
 				PresetChange::Pot {
-					preset,
 					pot,
 					channel,
 					cc,
@@ -198,6 +261,22 @@ impl ConfigChange {
 
 					s
 				}
+
+				PresetChange::Button {
+					button,
+					clicks,
+					hold,
+				} => {
+					let mut s = String::with_capacity(128);
+
+					write!(s, "btn{button}.hold={hold}").unwrap();
+					for (i, action) in clicks.iter().enumerate() {
+						let click = i + 1;
+						write!(s, ";btn{button}.{click}={action}").unwrap();
+					}
+
+					s
+				}
 			},
 		};
 
@@ -205,4 +284,83 @@ impl ConfigChange {
 
 		s
 	}
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "type", content = "data")]
+pub enum ButtonAction {
+	None,
+	NextPreset,
+	PreviousPreset,
+	Preset { preset: u8 },
+	Cc { cc: u8, channel: u8 },
+	Note { note: u8, channel: u8 },
+}
+
+impl fmt::Display for ButtonAction {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::None => f.write_str("none"),
+			Self::NextPreset => f.write_str("next-preset"),
+			Self::PreviousPreset => f.write_str("prev-preset"),
+			Self::Preset { preset } => write!(f, "preset|{preset}"),
+			Self::Cc { cc, channel } => write!(f, "cc|{channel}|{cc}"),
+			Self::Note { note, channel } => write!(f, "note|{channel}|{note}"),
+		}
+	}
+}
+
+fn parse_button_action(s: &str) -> Option<ButtonAction> {
+	fn last<'a>(mut iter: core::str::Split<'a, char>) -> Option<&'a str> {
+		let s = iter.next()?;
+		if iter.next().is_some() {
+			None
+		} else {
+			Some(s)
+		}
+	}
+
+	let parse_value = |s: &str, max: u8| -> Option<u8> { s.parse().ok().filter(|&n| n <= max) };
+
+	let x = match s {
+		"none" => ButtonAction::None,
+		"next-preset" => ButtonAction::NextPreset,
+		"prev-preset" => ButtonAction::PreviousPreset,
+		_ => {
+			let mut args = s.split('|');
+
+			match args.next()? {
+				"preset" => {
+					let preset = last(args)?;
+					ButtonAction::Preset {
+						preset: parse_value(preset, 3)?,
+					}
+				}
+
+				"cc" => {
+					let channel = args.next()?;
+					let cc = last(args)?;
+
+					ButtonAction::Cc {
+						cc: parse_value(cc, 127)?,
+						channel: parse_value(channel, 15)?,
+					}
+				}
+
+				"note" => {
+					let channel = args.next()?;
+					let note = last(args)?;
+
+					ButtonAction::Note {
+						channel: parse_value(channel, 15)?,
+						note: parse_value(note, 127)?,
+					}
+				}
+
+				_ => return None,
+			}
+		}
+	};
+
+	Some(x)
 }
