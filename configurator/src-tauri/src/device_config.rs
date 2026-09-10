@@ -267,7 +267,7 @@ impl ConfigChange {
 					clicks,
 					hold,
 				} => {
-					let mut s = String::with_capacity(128);
+					let mut s = format!("preset.set {preset} ");
 
 					write!(s, "btn{button}.hold={hold}").unwrap();
 					for (i, action) in clicks.iter().enumerate() {

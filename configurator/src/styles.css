@@ -199,10 +199,6 @@ td input[type="text"] {
 	text-align: center;
 }
 
-#save {
-	align-self: flex-start;
-}
-
 .sr-only {
 	position: absolute;
 	width: 1px;
@@ -235,4 +231,211 @@ td input[type="text"] {
 	height: 100% !important;
 	box-sizing: border-box !important;
 	line-height: normal !important;
+}
+/* Button Configuration Styling */
+
+#button-config {
+	margin-top: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+#button-config h3 {
+	font-size: 1.1rem;
+	font-weight: 600;
+	margin: 0 0 0.5rem 0;
+	color: var(--text-main);
+}
+
+/* Text alignment for table header cells */
+#button-config table th {
+	text-align: center;
+}
+
+/* Align first column header with row headers */
+#button-config table th[scope="col"]:first-child {
+	text-align: left;
+}
+
+/* Align row header labels */
+#button-config table th[scope="row"] {
+	text-align: left;
+	padding-right: 0.75rem;
+	width: 100px;
+	white-space: nowrap;
+}
+
+/* Force equal width columns across button grid */
+#button-config table td {
+	width: 20%;
+	padding: 0.25rem;
+	text-align: center;
+}
+
+/* Make all action buttons uniform and full-width in their cell */
+.button-action-btn {
+	width: 100%;
+	display: block;
+	box-sizing: border-box;
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 0.5rem 0.4rem;
+	background-color: #222226;
+	border: 1px solid #3f3f46;
+	color: var(--text-main);
+}
+
+.button-action-btn:hover:not(:disabled) {
+	background-color: #2e2e34;
+	border-color: #52525b;
+}
+
+/* Expand persist button to span cleanly under configuration controls */
+#save {
+	width: 100%;
+	margin-top: 0.5rem;
+	padding: 0.6rem 1rem;
+	text-align: center;
+}
+
+/* Dialog Backdrop & Container */
+dialog,
+.modal-dialog {
+	background-color: #1a1a1e;
+	color: #e4e4e7;
+	border: 1px solid #3f3f46;
+	border-radius: 8px;
+	padding: 1.5rem;
+	max-width: 400px;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.modal-dialog h3,
+dialog h3 {
+	margin-top: 0;
+	margin-bottom: 1.25rem;
+	color: #ffffff;
+	font-size: 1.2rem;
+}
+
+/* Form Layout Stack */
+.modal-form-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin-bottom: 1.25rem;
+}
+
+.modal-form-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.modal-form-row label {
+	font-size: 0.9rem;
+	color: #a1a1aa;
+}
+
+/* Input & Select Controls Styling */
+dialog input[type="number"],
+dialog select,
+.modal-dialog input[type="number"],
+.modal-dialog select {
+	background-color: #27272a;
+	border: 1px solid #3f3f46;
+	color: #ffffff;
+	padding: 0.4rem 0.6rem;
+	border-radius: 4px;
+	font-size: 0.9rem;
+	outline: none;
+}
+
+dialog input[type="number"]:focus,
+dialog select:focus,
+.modal-dialog input[type="number"]:focus,
+.modal-dialog select:focus {
+	border-color: #2563eb;
+}
+
+dialog input[type="number"] {
+	width: 60px;
+	text-align: center;
+}
+
+/* Dialog Action Buttons */
+.modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+
+.modal-actions button {
+	padding: 0.4rem 0.8rem;
+	border-radius: 4px;
+	border: 1px solid #3f3f46;
+	background-color: #27272a;
+	color: #ffffff;
+	cursor: pointer;
+	font-size: 0.85rem;
+}
+
+.modal-actions button:hover {
+	background-color: #3f3f46;
+}
+
+.modal-actions button.primary {
+	background-color: #2563eb;
+	border-color: #2563eb;
+}
+
+.modal-actions button.primary:hover {
+	background-color: #1d4ed8;
+}
+
+#button-action-dialog form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+/* Respect the HTML hidden attribute on param groups */
+#action-params-container .param-group[hidden] {
+	display: none !important;
+}
+
+#action-params-container .param-group:not([hidden]) {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.form-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+}
+
+.form-row label {
+	font-size: 0.9rem;
+	white-space: nowrap;
+}
+
+.form-row select,
+.form-row input[type="number"] {
+	width: 100px;
+}
+
+/* Ensure inputs and select fields share consistent widths */
+.form-row select,
+.form-row input[type="number"] {
+	width: 110px;
+	box-sizing: border-box;
 }

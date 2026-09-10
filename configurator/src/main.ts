@@ -322,7 +322,12 @@ function setupButtonConfig(): void {
 
 	form.addEventListener("submit", async e => {
 		e.preventDefault();
-		if (!guiState || !activeEditingTarget || operationInProgress) return;
+		if (!guiState || !activeEditingTarget || operationInProgress) {
+			return;
+		}
+
+		const submitter = e.submitter as HTMLButtonElement | null;
+		const applyToAll = submitter?.value === "all";
 
 		const { buttonIndex, gestureType, gestureIndex } = activeEditingTarget;
 		const selectedType = typeSelect.value;
@@ -365,27 +370,33 @@ function setupButtonConfig(): void {
 				return;
 		}
 
-		const buttonCfg = guiState.presets[selectedPreset].buttons[buttonIndex];
-		setButtonAction(buttonCfg, newAction, gestureType, gestureIndex);
+		const targetPresets = applyToAll ? guiState.presets.map((_, index) => index) : [selectedPreset];
+
+		const changePromises = targetPresets.map(async presetIndex => {
+			const buttonCfg = guiState!.presets[presetIndex].buttons[buttonIndex];
+
+			setButtonAction(buttonCfg, structuredClone(newAction), gestureType, gestureIndex);
+
+			return changeSetting({
+				type: "Preset",
+				data: {
+					preset: presetIndex,
+					change: {
+						type: "Button",
+						data: {
+							button: buttonIndex,
+							clicks: buttonCfg.clicks,
+							hold: buttonCfg.hold,
+						},
+					},
+				},
+			});
+		});
 
 		dialog.close();
 		updateGui();
 
-		// Dispatch change to backend
-		await changeSetting({
-			type: "Preset",
-			data: {
-				preset: selectedPreset,
-				change: {
-					type: "Button",
-					data: {
-						button: buttonIndex,
-						clicks: buttonCfg.clicks,
-						hold: buttonCfg.hold,
-					},
-				},
-			},
-		});
+		await Promise.all(changePromises);
 	});
 }
 

@@ -428,7 +428,7 @@
 					<form id="button-action-form" method="dialog">
 						<h4 id="dialog-title">Configure Button Action</h4>
 
-						<div>
+						<div class="form-row">
 							<label for="action-type-select">Action Type:</label>
 							<select id="action-type-select" required>
 								<option value="None">None</option>
@@ -443,29 +443,56 @@
 						<div id="action-params-container">
 							<!-- Preset Parameters -->
 							<div class="param-group" data-action="Preset" hidden>
-								<label for="param-preset">Preset Number (1-4):</label>
-								<input type="number" id="param-preset" min="1" max="4" value="1" required />
+								<div class="form-row">
+									<label for="param-preset">Preset Number (1-4):</label>
+									<input type="number" id="param-preset" min="1" max="4" value="1" required />
+								</div>
 							</div>
 
 							<!-- CC Parameters -->
 							<div class="param-group" data-action="Cc" hidden>
-								<label for="param-cc-number">CC Number (1-128):</label>
-								<input type="number" id="param-cc-number" min="1" max="128" value="1" required />
-								<label for="param-cc-channel">Channel (1-16):</label>
-								<input type="number" id="param-cc-channel" min="1" max="16" value="1" required />
+								<div class="form-row">
+									<label for="param-cc-number">CC Number (1-128):</label>
+									<input type="number" id="param-cc-number" min="1" max="128" value="1" required />
+								</div>
+								<div class="form-row">
+									<label for="param-cc-channel">Channel (1-16):</label>
+									<input type="number" id="param-cc-channel" min="1" max="16" value="1" required />
+								</div>
 							</div>
 
 							<!-- Note Parameters -->
 							<div class="param-group" data-action="Note" hidden>
-								<label for="param-note-number">Note Number (1-128):</label>
-								<input type="number" id="param-note-number" min="1" max="128" value="1" required />
-								<label for="param-note-channel">Channel (1-16):</label>
-								<input type="number" id="param-note-channel" min="1" max="16" value="1" required />
+								<div class="form-row">
+									<label for="param-note-number">Note Number (1-128):</label>
+									<input
+										type="number"
+										id="param-note-number"
+										min="1"
+										max="128"
+										value="1"
+										required
+									/>
+								</div>
+								<div class="form-row">
+									<label for="param-note-channel">Channel (1-16):</label>
+									<input
+										type="number"
+										id="param-note-channel"
+										min="1"
+										max="16"
+										value="1"
+										required
+									/>
+								</div>
 							</div>
 						</div>
 
 						<menu>
-							<button type="submit" id="dialog-save-btn">OK</button>
+							<button type="submit" value="current" id="dialog-save-btn">Apply</button>
+							<button type="submit" value="all" id="dialog-save-all-btn">
+								Apply to All Presets
+							</button>
 							<button type="button" id="dialog-cancel-btn">Cancel</button>
 						</menu>
 					</form>
