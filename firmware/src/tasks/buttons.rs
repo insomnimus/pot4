@@ -85,7 +85,7 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 			.zip(buttons.iter_mut().zip(&button_configs))
 		{
 			let Some(click) = button.update(
-				reading,
+				!reading,
 				ticks,
 				MULTIPRESS_TIMEOUT_TICKS,
 				HOLD_THRESHOLD_TICKS,
@@ -145,7 +145,7 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 
 				// Single, double or triple click
 				Event::Released { count } => {
-					match button_config.clicks[count as usize] {
+					match button_config.clicks[count as usize - 1] {
 						ButtonAction::None => (),
 
 						ButtonAction::NextPreset => {
