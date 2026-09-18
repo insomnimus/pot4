@@ -37,7 +37,7 @@ Saved configuration is written to the last page of the flash / bank1 with wear-l
 
 There are 2 config clients; one is a GUI app, and the other a CLI app.
 The CLI configurator (located in `cli/`) exposes a basic shell to send commands and read output.
-The GUI configurator (located in `configurator/`) is currently work in progress, but it will eventually support every feature the device offers.
+The GUI configurator (located in `configurator/`) is a minimal, standalone Tauri application.
 
 ### Config sources
 There are 2 sources of configuration:
@@ -211,7 +211,7 @@ For all 3 sub-projects, you need a Rust toolchain, and for the firmware specific
 ```shell
 cd cli/
 cargo build --release
-# the binary will be in target/release/pot4 (with a .exe extension on windows)
+# the binary will be at target/release/pot4 (with a .exe extension on windows)
 ```
 
 The firmware can be built, but requires probe-rs to flash.
@@ -233,3 +233,17 @@ pot4 --interactive
 ```
 
 It should put you in a config shell.
+
+To build the GUI configurator, you need
+- [Deno](https://deno.com)
+- cargo-tauri
+	```shell
+	cargo install cargo-tauri --locked
+	```
+
+```shell
+cd configurator
+cargo tauri build --no-bundle
+# The standalone executable will be at src-tauri/target/release/configurator (with a .exe extension on Windows)
+# You can move it anywhere
+```
