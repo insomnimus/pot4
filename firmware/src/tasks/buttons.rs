@@ -72,6 +72,7 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 	];
 
 	let mut buttons = [(); 4].map(|_| Button::new());
+	let mut ignore_hold_releases = [false; 4];
 
 	let mut ticks = 0;
 	loop {
@@ -90,10 +91,11 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 			*val = pin.is_high();
 		}
 
-		for (reading, (button, button_config)) in readings
-			.into_iter()
-			.zip(buttons.iter_mut().zip(&button_configs))
-		{
+		for (reading, (ignore_hold_release, (button, button_config))) in readings.into_iter().zip(
+			ignore_hold_releases
+				.iter_mut()
+				.zip(buttons.iter_mut().zip(&button_configs)),
+		) {
 			let Some(click) = button.update(
 				!reading,
 				ticks,
@@ -108,9 +110,13 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 					match button_config.hold {
 						ButtonAction::None => (),
 
-						ButtonAction::NextPreset => send_request(false, Command::NextPreset).await,
+						ButtonAction::NextPreset => {
+							send_request(false, Command::NextPreset).await;
+							*ignore_hold_release = true;
+						}
 						ButtonAction::PreviousPreset => {
-							send_request(false, Command::PreviousPreset).await
+							send_request(false, Command::PreviousPreset).await;
+							*ignore_hold_release = true;
 						}
 						ButtonAction::Preset { preset } => {
 							send_request(
@@ -123,6 +129,7 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 								},
 							)
 							.await;
+							*ignore_hold_release = true;
 						}
 
 						ButtonAction::Cc { cc, channel } => {
@@ -138,6 +145,9 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 				}
 
 				// Hold released
+				Event::Released { count: 0 } if *ignore_hold_release => {
+					*ignore_hold_release = false;
+				}
 				Event::Released { count: 0 } => match button_config.hold {
 					ButtonAction::Cc { cc, channel } => {
 						send_midi_packet(midi::cc(cc, channel, 0)).await;
