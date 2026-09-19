@@ -53,7 +53,10 @@ use embassy_usb::{
 	class::midi::MidiClass,
 };
 use panic_probe as _;
-use static_cell::StaticCell;
+use static_cell::{
+	ConstStaticCell,
+	StaticCell,
+};
 
 use self::{
 	config::{
@@ -98,10 +101,10 @@ type MutexedConfig = Mutex<ThreadModeRawMutex, DeviceConfig>;
 static DEVICE_CONFIG: StaticCell<MutexedConfig> = StaticCell::new();
 
 // USB buffers
-static CONFIG_DESCRIPTOR: StaticCell<[u8; 512]> = StaticCell::new();
-static BOS_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
-static CONTROL_BUF: StaticCell<[u8; 64]> = StaticCell::new();
-static MSOS_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
+static CONFIG_DESCRIPTOR: ConstStaticCell<[u8; 512]> = ConstStaticCell::new([0; 512]);
+static BOS_DESCRIPTOR: ConstStaticCell<[u8; 256]> = ConstStaticCell::new([0; 256]);
+static CONTROL_BUF: ConstStaticCell<[u8; 64]> = ConstStaticCell::new([0; 64]);
+static MSOS_DESCRIPTOR: ConstStaticCell<[u8; 256]> = ConstStaticCell::new([0; 256]);
 
 static REQUEST_CHANNEL: Channel<ThreadModeRawMutex, Request, 4> = Channel::new();
 static RESPONSE_CHANNEL: Channel<ThreadModeRawMutex, Response, 4> = Channel::new();
@@ -169,10 +172,10 @@ async fn main(spawner: Spawner) {
 	info!("ADC initialized");
 
 	// Initialize USB buffers
-	let config_descriptor = CONFIG_DESCRIPTOR.init([0; 512]);
-	let bos_descriptor = BOS_DESCRIPTOR.init([0; 256]);
-	let control_buf = CONTROL_BUF.init([0; 64]);
-	let msos_descriptor = MSOS_DESCRIPTOR.init([0; 256]);
+	let config_descriptor = CONFIG_DESCRIPTOR.take();
+	let bos_descriptor = BOS_DESCRIPTOR.take();
+	let control_buf = CONTROL_BUF.take();
+	let msos_descriptor = MSOS_DESCRIPTOR.take();
 
 	let mut usb_config = UsbConfig::new(VID, PID);
 	usb_config.manufacturer = Some(MANUFACTURER);
