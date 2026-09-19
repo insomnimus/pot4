@@ -3,6 +3,7 @@
 
 mod button;
 mod config;
+mod delay;
 mod midi;
 mod pot;
 mod storage;

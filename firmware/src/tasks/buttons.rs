@@ -17,6 +17,7 @@ use embassy_time::{
 	Instant,
 	Timer,
 };
+use static_cell::StaticCell;
 
 use crate::{
 	MutexedConfig,
@@ -33,6 +34,7 @@ use crate::{
 			ConfigValue,
 		},
 	},
+	delay::DelayLine,
 	midi,
 	send_midi_packet,
 	send_request,
@@ -40,9 +42,14 @@ use crate::{
 
 // Length of a tick.
 const SAMPLE_PERIOD_MS: u32 = 1;
+
 const SAMPLE_PERIOD: Duration = Duration::from_millis(SAMPLE_PERIOD_MS as u64);
 const MULTIPRESS_TIMEOUT_TICKS: u32 = 250; // 300 ticks
 const HOLD_THRESHOLD_TICKS: u32 = 400;
+
+const DELAY_LENGTH: usize = 30;
+static DELAYED_PACKETS: StaticCell<DelayLine<ArrayVec<[u8; 4], 4>, DELAY_LENGTH>> =
+	StaticCell::new();
 
 pub struct ButtonPins {
 	pub button0: Peri<'static, PB0>,
@@ -53,6 +60,10 @@ pub struct ButtonPins {
 
 #[embassy_executor::task]
 pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPins) {
+	let delayed_packets = DELAYED_PACKETS.init(DelayLine::new(
+		[(); DELAY_LENGTH].map(|_| ArrayVec::new_const()),
+	));
+
 	let mut button_pins = [
 		Input::new(pins.button0, Pull::Up),
 		Input::new(pins.button1, Pull::Up),
@@ -61,7 +72,6 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 	];
 
 	let mut buttons = [(); 4].map(|_| Button::new());
-	let mut delayed_packets = ArrayVec::<[u8; 4], 4>::new();
 
 	let mut ticks = 0;
 	loop {
@@ -70,10 +80,10 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 		let button_configs = device_config.lock().await.active_preset().buttons;
 
 		// Send queued packets from the last iteration.
-		for &packet in &delayed_packets {
+		for &packet in &delayed_packets.push(ArrayVec::new_const()) {
 			send_midi_packet(packet).await;
 		}
-		delayed_packets.clear();
+		let delayed_packets = delayed_packets.newest_mut();
 
 		let mut readings = [false; 4];
 		for (pin, val) in button_pins.iter_mut().zip(&mut readings) {
@@ -168,14 +178,14 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 						}
 
 						ButtonAction::Cc { channel, cc } => {
-							// Turn the CC off in the next tick.
+							// Turn the CC off after a while.
 							delayed_packets.push(midi::cc(cc, channel, 0));
 
 							send_midi_packet(midi::cc(cc, channel, 127)).await;
 						}
 
 						ButtonAction::Note { note, channel } => {
-							// Turn the note off in the next tick.
+							// Turn the note off later.
 							delayed_packets.push(midi::note_off(note, channel));
 
 							send_midi_packet(midi::note_on(note, 100, channel)).await;
