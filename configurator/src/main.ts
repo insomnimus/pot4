@@ -67,9 +67,39 @@ function updateGui(): void {
 	});
 
 	updateButtonActions();
+	updateButtonTimes();
 	updateUseButton();
 	updatePresetLabels();
 	updateDirtyMarkers();
+}
+
+function updateButtonTimes(): void {
+	if (!guiState) {
+		return;
+	}
+
+	const currentPreset = guiState.presets[selectedPreset];
+	const inputs = document.querySelectorAll<HTMLInputElement>("#button-config .button-time-input");
+
+	for (const input of inputs) {
+		const btnIdx = Number(input.dataset.btn);
+		const timeType = input.dataset.timeType;
+
+		if (isNaN(btnIdx)) {
+			continue;
+		}
+
+		const button = currentPreset.buttons[btnIdx];
+
+		switch (timeType) {
+			case "hold-threshold":
+				input.value = String(button.hold_time);
+				break;
+			case "multi-click":
+				input.value = String(button.click_time);
+				break;
+		}
+	}
 }
 
 function updateButtonActions(): void {
@@ -128,6 +158,11 @@ function presetIsDirty(index: number): boolean {
 
 	return guiPreset.buttons.some((btn, btnIdx) => {
 		const savedBtn = savedPreset.buttons[btnIdx];
+
+		if (btn.hold_time !== savedBtn.hold_time || btn.click_time !== savedBtn.click_time) {
+			return true;
+		}
+
 		if (JSON.stringify(btn.hold) !== JSON.stringify(savedBtn.hold)) return true;
 		return btn.clicks.some(
 			(click, clickIdx) => JSON.stringify(click) !== JSON.stringify(savedBtn.clicks[clickIdx]),
@@ -243,6 +278,7 @@ function updateDirtyMarkers(): void {
 }
 
 function setupButtonConfig(): void {
+	setupButtonTiming();
 	const dialog = document.getElementById("button-action-dialog") as HTMLDialogElement;
 	const form = document.getElementById("button-action-form") as HTMLFormElement;
 	const typeSelect = document.getElementById("action-type-select") as HTMLSelectElement;
@@ -387,6 +423,8 @@ function setupButtonConfig(): void {
 							button: buttonIndex,
 							clicks: buttonCfg.clicks,
 							hold: buttonCfg.hold,
+							click_time: buttonCfg.click_time,
+							hold_time: buttonCfg.hold_time,
 						},
 					},
 				},
@@ -532,6 +570,88 @@ function setupPotInputs(): void {
 	}
 }
 
+function setupButtonTiming(): void {
+	const inputs = document.querySelectorAll<HTMLInputElement>("#button-config .button-time-input");
+
+	const updateButtonTime = function (input: HTMLInputElement): void {
+		if (!guiState) {
+			return;
+		}
+
+		const buttonIndex = Number(input.dataset.btn);
+		const timeType = input.dataset.timeType;
+
+		if (isNaN(buttonIndex)) {
+			return;
+		}
+
+		const value = Number(input.value);
+
+		if (!Number.isInteger(value) || value < 0 || value > 2000) {
+			updateButtonTimes();
+			return;
+		}
+
+		const button = guiState.presets[selectedPreset].buttons[buttonIndex];
+
+		switch (timeType) {
+			case "hold-threshold":
+				button.hold_time = value;
+				break;
+			case "multi-click":
+				button.click_time = value;
+				break;
+			default:
+				return;
+		}
+
+		void changeSetting({
+			type: "Preset",
+			data: {
+				preset: selectedPreset,
+				change: {
+					type: "Button",
+					data: {
+						button: buttonIndex,
+						clicks: button.clicks,
+						hold: button.hold,
+						click_time: button.click_time,
+						hold_time: button.hold_time,
+					},
+				},
+			},
+		});
+
+		updateDirtyMarkers();
+	};
+
+	for (const input of inputs) {
+		input.addEventListener("change", () => {
+			updateButtonTime(input);
+		});
+
+		input.addEventListener("keydown", e => {
+			if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+				return;
+			}
+
+			e.preventDefault();
+
+			const currentValue = Number(input.value);
+
+			if (!Number.isInteger(currentValue)) {
+				input.value = "0";
+			}
+
+			const value = Number(input.value);
+			const delta = e.key === "ArrowUp" ? 1 : -1;
+			const newValue = Math.max(0, Math.min(2000, value + delta));
+
+			input.value = String(newValue);
+			updateButtonTime(input);
+		});
+	}
+}
 // This does not change config; just changes the screen.
 function setupPresetSelection(): void {
 	const radios = document.querySelectorAll<HTMLInputElement>('input[name="preset"]');
@@ -857,29 +977,32 @@ function setupKeyboardShortcuts(): void {
 	});
 }
 
-try {
-	await connectDeviceWithStatus();
+// Initialization
+{
+	try {
+		await connectDeviceWithStatus();
 
-	selectedPreset = 0;
-	pollActivePreset();
+		selectedPreset = 0;
+		pollActivePreset();
 
-	setupKeyboardShortcuts();
-	setupPresetName();
-	setupPotInputs();
-	setupPresetSelection();
-	setupUseButton();
-	setupButtonConfig();
+		setupKeyboardShortcuts();
+		setupPresetName();
+		setupPotInputs();
+		setupPresetSelection();
+		setupUseButton();
+		setupButtonConfig();
 
-	for (const [id, func] of [
-		["reset", reset],
-		["save", save],
-	] as const) {
-		const button = document.getElementById(id);
-		button?.addEventListener("click", async () => await func());
+		for (const [id, func] of [
+			["reset", reset],
+			["save", save],
+		] as const) {
+			const button = document.getElementById(id);
+			button?.addEventListener("click", async () => await func());
+		}
+
+		updateGui();
+	} catch (e) {
+		console.error(`error initializing: ${e}`);
+		alert(`Error initializing: ${e}`);
 	}
-
-	updateGui();
-} catch (e) {
-	console.error(`error initializing: ${e}`);
-	alert(`Error initializing: ${e}`);
 }

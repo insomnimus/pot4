@@ -20,6 +20,8 @@ export interface PotConfig {
 export interface ButtonConfig {
 	clicks: [ButtonAction, ButtonAction, ButtonAction];
 	hold: ButtonAction;
+	click_time: number;
+	hold_time: number;
 }
 
 export type ButtonAction =
@@ -51,6 +53,8 @@ export type PresetChange =
 				button: number;
 				clicks: [ButtonAction, ButtonAction, ButtonAction];
 				hold: ButtonAction;
+				hold_time: number;
+				click_time: number;
 			};
 	  };
 
@@ -68,7 +72,12 @@ export async function resetConfig(): Promise<void> {
 
 export async function changeSetting(change: ConfigChange): Promise<void> {
 	// console.log("changeSetting: ", JSON.stringify(change, null, 2));
-	await invoke("change_setting", { change });
+	try {
+		await invoke("change_setting", { change });
+	} catch (e) {
+		console.log("error: ", e);
+		alert(`Failed to sync changes: ${e}`);
+	}
 }
 
 export async function saveChanges(): Promise<void> {

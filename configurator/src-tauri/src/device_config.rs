@@ -49,6 +49,8 @@ pub struct PotConfig {
 pub struct ButtonConfig {
 	clicks: [ButtonAction; 3],
 	hold: ButtonAction,
+	hold_time: u16,
+	click_time: u16,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -62,6 +64,8 @@ struct OptionalPotConfig {
 struct OptionalButtonConfig {
 	clicks: [Option<ButtonAction>; 4],
 	hold: Option<ButtonAction>,
+	hold_time: Option<u16>,
+	click_time: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,7 +82,18 @@ impl Preset {
 		let mut name = String::with_capacity(32);
 
 		for key_value in s.split(';') {
-			let parse_value = |s: &str, max: u8| -> Result<u8, ConfigParseError> {
+			let parse_u8 = |s: &str, max: u8| -> Result<u8, ConfigParseError> {
+				let n = s
+					.parse()
+					.map_err(|_| ConfigParseError::InvalidValue(key_value.into()))?;
+				if n <= max {
+					Ok(n)
+				} else {
+					Err(ConfigParseError::ValueTooBig(key_value.into()))
+				}
+			};
+
+			let parse_u16 = |s: &str, max: u16| -> Result<u16, ConfigParseError> {
 				let n = s
 					.parse()
 					.map_err(|_| ConfigParseError::InvalidValue(key_value.into()))?;
@@ -103,16 +118,30 @@ impl Preset {
 				let (button, subkey) = button_and_subkey
 					.split_once('.')
 					.ok_or_else(|| ConfigParseError::InvalidButton(key_value.into()))?;
-				let button = parse_value(button, 3)?;
-				let action = parse_button_action(value)
-					.ok_or_else(|| ConfigParseError::InvalidButtonAction(key_value.into()))?;
+				let button = parse_u8(button, 3)?;
 
 				match subkey {
-					"1" => buttons[button as usize].clicks[0] = Some(action),
-					"2" => buttons[button as usize].clicks[1] = Some(action),
-					"3" => buttons[button as usize].clicks[2] = Some(action),
-					"hold" => buttons[button as usize].hold = Some(action),
-					_ => return Err(ConfigParseError::InvalidButtonAction(key_value.into())),
+					"hold-time" => {
+						buttons[button as usize].hold_time = Some(parse_u16(value, 2000)?)
+					}
+					"click-time" => {
+						buttons[button as usize].click_time = Some(parse_u16(value, 2000)?)
+					}
+					_ => {
+						let action = parse_button_action(value).ok_or_else(|| {
+							ConfigParseError::InvalidButtonAction(key_value.into())
+						})?;
+
+						match subkey {
+							"1" => buttons[button as usize].clicks[0] = Some(action),
+							"2" => buttons[button as usize].clicks[1] = Some(action),
+							"3" => buttons[button as usize].clicks[2] = Some(action),
+							"hold" => buttons[button as usize].hold = Some(action),
+							_ => {
+								return Err(ConfigParseError::InvalidButtonAction(key_value.into()))
+							}
+						}
+					}
 				}
 
 				continue;
@@ -136,17 +165,17 @@ impl Preset {
 
 			match subkey {
 				"cc" => {
-					pots[pot_number as usize].cc = Some(parse_value(value, 127)?);
+					pots[pot_number as usize].cc = Some(parse_u8(value, 127)?);
 				}
 
 				"chan" => {
-					pots[pot_number as usize].channel = Some(parse_value(value, 15)?);
+					pots[pot_number as usize].channel = Some(parse_u8(value, 15)?);
 				}
 				"triggers" => {
 					let mut triggers = [false; 4];
 
 					for s in value.split(',') {
-						let n = parse_value(s, 3)?;
+						let n = parse_u8(s, 3)?;
 						triggers[n as usize] = true;
 					}
 
@@ -165,6 +194,8 @@ impl Preset {
 		let mut bs = [ButtonConfig {
 			clicks: [ButtonAction::None; 3],
 			hold: ButtonAction::None,
+			hold_time: 300,
+			click_time: 400,
 		}; 4];
 
 		for (optional, real) in pots.into_iter().zip(ps.iter_mut()) {
@@ -189,6 +220,14 @@ impl Preset {
 
 			real.hold = optional
 				.hold
+				.ok_or_else(|| ConfigParseError::Incomplete(s.into()))?;
+
+			real.hold_time = optional
+				.hold_time
+				.ok_or_else(|| ConfigParseError::Incomplete(s.into()))?;
+
+			real.click_time = optional
+				.click_time
 				.ok_or_else(|| ConfigParseError::Incomplete(s.into()))?;
 		}
 
@@ -227,6 +266,8 @@ pub enum PresetChange {
 		button: u8,
 		clicks: [ButtonAction; 3],
 		hold: ButtonAction,
+		click_time: u16,
+		hold_time: u16,
 	},
 }
 
@@ -266,6 +307,8 @@ impl ConfigChange {
 					button,
 					clicks,
 					hold,
+					hold_time,
+					click_time,
 				} => {
 					let mut s = format!("preset.set {preset} ");
 
@@ -274,6 +317,12 @@ impl ConfigChange {
 						let click = i + 1;
 						write!(s, ";btn{button}.{click}={action}").unwrap();
 					}
+
+					write!(
+						s,
+						";btn{button}.hold-time={hold_time};btn{button}.click-time={click_time}"
+					)
+					.unwrap();
 
 					s
 				}

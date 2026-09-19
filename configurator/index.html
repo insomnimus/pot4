@@ -45,7 +45,7 @@
 				</label>
 
 				<label>
-					<input type="radio" name="preset" value="2" aria-labelledby="preset-label-2" />
+					<input type="radio" name="preset" value="2" aria-labelledby="preset-radio-2" />
 					<span id="preset-radio-2">3. Unnamed</span>
 				</label>
 
@@ -235,6 +235,7 @@
 								<th scope="col">Button 4</th>
 							</tr>
 						</thead>
+
 						<tbody>
 							<tr>
 								<th scope="row">Single Press</th>
@@ -421,12 +422,108 @@
 								</td>
 							</tr>
 						</tbody>
+						<tbody>
+							<tr>
+								<th scope="row">Hold threshold</th>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="0"
+										data-time-type="hold-threshold"
+										value="500"
+									/>
+									ms
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="1"
+										data-time-type="hold-threshold"
+										value="500"
+									/>
+									ms
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="2"
+										data-time-type="hold-threshold"
+										value="500"
+									/>
+									ms
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="3"
+										data-time-type="hold-threshold"
+										value="500"
+									/>
+									ms
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">Multi-click time</th>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="0"
+										data-time-type="multi-click"
+										value="300"
+									/>
+									ms
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="1"
+										data-time-type="multi-click"
+										value="300"
+									/>
+									ms
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="2"
+										data-time-type="multi-click"
+										value="300"
+									/>
+									ms
+								</td>
+								<td>
+									<input
+										type="text"
+										inputmode="numeric"
+										class="button-time-input"
+										data-btn="3"
+										data-time-type="multi-click"
+										value="300"
+									/>
+									ms
+								</td>
+							</tr>
+						</tbody>
 					</table>
 				</section>
 
 				<dialog id="button-action-dialog" aria-labelledby="dialog-title">
 					<form id="button-action-form" method="dialog">
-						<h4 id="dialog-title">Configure Button Action</h4>
+						<h3 id="dialog-title">Configure Button Action</h3>
 
 						<div class="form-row">
 							<label for="action-type-select">Action Type:</label>
