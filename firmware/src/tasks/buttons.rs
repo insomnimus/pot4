@@ -44,8 +44,6 @@ use crate::{
 const SAMPLE_PERIOD_MS: u32 = 1;
 
 const SAMPLE_PERIOD: Duration = Duration::from_millis(SAMPLE_PERIOD_MS as u64);
-const MULTIPRESS_TIMEOUT_TICKS: u32 = 250; // 300 ticks
-const HOLD_THRESHOLD_TICKS: u32 = 400;
 
 const DELAY_LENGTH: usize = 30;
 static DELAYED_PACKETS: StaticCell<DelayLine<ArrayVec<[u8; 4], 4>, DELAY_LENGTH>> =
@@ -99,8 +97,8 @@ pub async fn buttons_task(device_config: &'static MutexedConfig, pins: ButtonPin
 			let Some(click) = button.update(
 				!reading,
 				ticks,
-				MULTIPRESS_TIMEOUT_TICKS,
-				HOLD_THRESHOLD_TICKS,
+				button_config.click_time as _,
+				button_config.hold_time as _,
 			) else {
 				continue;
 			};

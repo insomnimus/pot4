@@ -238,7 +238,8 @@ pub enum ConfigKey {
 	PotChan(u8),
 	PotTriggers(u8),
 	Preset,
-	Button { button: u8, gesture: ButtonGesture },
+	ButtonGesture { button: u8, gesture: ButtonGesture },
+	ButtonTime { button: u8, is_hold: bool },
 }
 
 impl ConfigKey {
@@ -247,6 +248,38 @@ impl ConfigKey {
 			return Ok(Self::Preset);
 		}
 
+		if key.starts_with("btn") {
+			let (button, button_field) = parse_button_number(key)?;
+			let x = match button_field {
+				"click-time" => Self::ButtonTime {
+					button,
+					is_hold: false,
+				},
+				"hold-time" => Self::ButtonTime {
+					button,
+					is_hold: true,
+				},
+				"hold" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Hold,
+				},
+				"1" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Click(1),
+				},
+				"2" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Click(2),
+				},
+				"3" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Click(3),
+				},
+				_ => return Err(ParseError::UnknownKey),
+			};
+
+			return Ok(x);
+		}
 		let rest = key.strip_prefix("pot").ok_or(ParseError::UnknownKey)?;
 
 		let (pot, field) = rest.split_once('.').ok_or(ParseError::UnknownKey)?;
@@ -272,7 +305,8 @@ pub enum PresetConfigKey {
 	PotChan(u8),
 	PotTriggers(u8),
 	Name,
-	Button { button: u8, gesture: ButtonGesture },
+	ButtonGesture { button: u8, gesture: ButtonGesture },
+	ButtonTime { button: u8, is_hold: bool },
 }
 
 impl PresetConfigKey {
@@ -282,8 +316,36 @@ impl PresetConfigKey {
 		}
 
 		if key.starts_with("btn") {
-			let (button, gesture) = parse_button_key(key)?;
-			return Ok(Self::Button { button, gesture });
+			let (button, button_field) = parse_button_number(key)?;
+			let x = match button_field {
+				"click-time" => Self::ButtonTime {
+					button,
+					is_hold: false,
+				},
+				"hold-time" => Self::ButtonTime {
+					button,
+					is_hold: true,
+				},
+				"hold" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Hold,
+				},
+				"1" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Click(1),
+				},
+				"2" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Click(2),
+				},
+				"3" => Self::ButtonGesture {
+					button,
+					gesture: ButtonGesture::Click(3),
+				},
+				_ => return Err(ParseError::UnknownKey),
+			};
+
+			return Ok(x);
 		}
 
 		let rest = key.strip_prefix("pot").ok_or(ParseError::UnknownKey)?;
@@ -326,6 +388,7 @@ impl PresetConfigChange {
 #[derive(Copy, Clone)]
 pub enum ConfigValue {
 	U8(u8),
+	U16(u16),
 	PresetName(ArrayString<32>),
 	ButtonAction(ButtonAction),
 }
@@ -348,7 +411,8 @@ impl ConfigValue {
 
 				Self::U8(val)
 			}
-			ConfigKey::Button { .. } => Self::ButtonAction(parse_button_action(s)?),
+			ConfigKey::ButtonGesture { .. } => Self::ButtonAction(parse_button_action(s)?),
+			ConfigKey::ButtonTime { .. } => Self::U16(parse_value(s, 2000)?),
 		};
 
 		Ok(val)
@@ -371,7 +435,8 @@ impl ConfigValue {
 
 				Self::U8(val)
 			}
-			PresetConfigKey::Button { .. } => Self::ButtonAction(parse_button_action(s)?),
+			PresetConfigKey::ButtonGesture { .. } => Self::ButtonAction(parse_button_action(s)?),
+			PresetConfigKey::ButtonTime { .. } => Self::U16(parse_value(s, 2000)?),
 		};
 
 		Ok(val)
@@ -381,6 +446,13 @@ impl ConfigValue {
 		match self {
 			Self::U8(val) => val,
 			_ => defmt::panic!("ConfigValue::unwrap_u8 called on a non-U8 variant"),
+		}
+	}
+
+	pub fn unwrap_u16(self) -> u16 {
+		match self {
+			Self::U16(val) => val,
+			_ => defmt::panic!("ConfigValue::unwrap_u16 called on a non-U8 variant"),
 		}
 	}
 
@@ -481,19 +553,13 @@ fn parse_button_action(s: &str) -> Result<ButtonAction, ParseError> {
 	Ok(x)
 }
 
-fn parse_button_key(s: &str) -> Result<(u8, ButtonGesture), ParseError> {
-	let s = s.strip_prefix("btn").ok_or(ParseError::InvalidAssignment)?;
-	let (button, subkey) = s.split_once('.').ok_or(ParseError::InvalidButton)?;
+fn parse_button_number(key: &str) -> Result<(u8, &str), ParseError> {
+	let s = key
+		.strip_prefix("btn")
+		.expect("prase_button_called with an argument that doesn't start with 'btn'");
+	let (button, field) = s.split_once('.').ok_or(ParseError::UnknownKey)?;
 
 	let button = parse_value(button, 3).map_err(|_| ParseError::InvalidButton)?;
 
-	let gesture = match subkey {
-		"1" => ButtonGesture::Click(1),
-		"2" => ButtonGesture::Click(2),
-		"3" => ButtonGesture::Click(3),
-		"hold" => ButtonGesture::Hold,
-		_ => return Err(ParseError::InvalidButtonGesture),
-	};
-
-	Ok((button, gesture))
+	Ok((button, field))
 }

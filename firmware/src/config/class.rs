@@ -19,7 +19,7 @@ const CONFIG_GUID: &str = "{6b526a6d-af08-4470-b02e-6371a41de793}";
 // Maximum USB packet size.
 const MAX_PACKET_SIZE: usize = 64;
 // Maximum protocol message size excluding \n.
-pub const MAX_MESSAGE_SIZE: usize = 512;
+pub const MAX_MESSAGE_SIZE: usize = 1024;
 
 #[derive(Debug)]
 pub enum ConfigReceiverError {

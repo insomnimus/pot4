@@ -28,14 +28,11 @@ use crate::{
 	storage::Versioned,
 };
 
-const MAX_SERIALIZED_CONFIG_SIZE: usize = "pot3.chan=15;pot3.cc=127;pot3.triggers=0,1,2,3".len()
-	* 4 + ";preset=3".len()
-	+ (";btn3.hold=prev-preset".len() + ";btn3.3=prev-preset".len() * 3) * 4;
+const DEFAULT_HOLD_TIME: u16 = 300;
+const DEFAULT_CLICK_TIME: u16 = 250;
 
-const MAX_SERIALIZED_PRESET_CONFIG_SIZE: usize =
-	"pot3.chan=15;pot3.cc=127;pot3.triggers=0,1,2,3".len() * 4
-		+ ";name=".len()
-		+ 32 + (";btn3.hold=prev-preset".len() + ";btn3.3=prev-preset".len() * 3) * 4;
+const MAX_SERIALIZED_CONFIG_SIZE: usize = 1024;
+const MAX_SERIALIZED_PRESET_CONFIG_SIZE: usize = 1024;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Format)]
 pub struct PotConfig {
@@ -169,9 +166,23 @@ impl DeviceConfig {
 					self.active_preset_mut().pots[pot as usize].triggers = change.value.unwrap_u8();
 				}
 				ConfigKey::Preset => self.active_preset = change.value.unwrap_u8(),
-				ConfigKey::Button { button, gesture } => self.active_preset_mut().buttons
+				ConfigKey::ButtonGesture { button, gesture } => self.active_preset_mut().buttons
 					[button as usize]
 					.set_gesture(gesture, change.value.unwrap_button_action()),
+				ConfigKey::ButtonTime {
+					button,
+					is_hold: true,
+				} => {
+					self.active_preset_mut().buttons[button as usize].hold_time =
+						change.value.unwrap_u16()
+				}
+				ConfigKey::ButtonTime {
+					button,
+					is_hold: false,
+				} => {
+					self.active_preset_mut().buttons[button as usize].click_time =
+						change.value.unwrap_u16()
+				}
 			}
 		}
 	}
@@ -276,8 +287,16 @@ impl Preset {
 					self.pots[pot as usize].triggers = change.value.unwrap_u8()
 				}
 				PresetConfigKey::Name => self.name = change.value.unwrap_preset_name(),
-				PresetConfigKey::Button { button, gesture } => self.buttons[button as usize]
+				PresetConfigKey::ButtonGesture { button, gesture } => self.buttons[button as usize]
 					.set_gesture(gesture, change.value.unwrap_button_action()),
+				PresetConfigKey::ButtonTime {
+					button,
+					is_hold: true,
+				} => self.buttons[button as usize].hold_time = change.value.unwrap_u16(),
+				PresetConfigKey::ButtonTime {
+					button,
+					is_hold: false,
+				} => self.buttons[button as usize].click_time = change.value.unwrap_u16(),
 			}
 		}
 	}
@@ -296,13 +315,15 @@ impl<const N: usize> fmt::Write for ArrayVecWriter<'_, N> {
 }
 
 impl Versioned for DeviceConfig {
-	const VERSION: u16 = 3;
+	const VERSION: u16 = 4;
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct ButtonConfig {
 	pub clicks: [ButtonAction; 3],
 	pub hold: ButtonAction,
+	pub click_time: u16,
+	pub hold_time: u16,
 }
 
 impl ButtonConfig {
@@ -310,18 +331,26 @@ impl ButtonConfig {
 		Self {
 			clicks: [ButtonAction::Preset { preset: 0 }; 3],
 			hold: ButtonAction::None,
+			click_time: DEFAULT_CLICK_TIME,
+			hold_time: DEFAULT_HOLD_TIME,
 		},
 		Self {
 			clicks: [ButtonAction::Preset { preset: 1 }; 3],
 			hold: ButtonAction::None,
+			click_time: DEFAULT_CLICK_TIME,
+			hold_time: DEFAULT_HOLD_TIME,
 		},
 		Self {
 			clicks: [ButtonAction::Preset { preset: 2 }; 3],
 			hold: ButtonAction::None,
+			click_time: DEFAULT_CLICK_TIME,
+			hold_time: DEFAULT_HOLD_TIME,
 		},
 		Self {
 			clicks: [ButtonAction::Preset { preset: 3 }; 3],
 			hold: ButtonAction::None,
+			click_time: DEFAULT_CLICK_TIME,
+			hold_time: DEFAULT_HOLD_TIME,
 		},
 	];
 
@@ -348,6 +377,13 @@ impl ButtonConfig {
 
 		write!(ArrayVecWriter { buf }, "btn{button_index}.hold=")?;
 		self.hold.serialize_into(buf)?;
+
+		write!(
+			ArrayVecWriter { buf },
+			";btn{button_index}.hold-time={hold_time};btn{button_index}.click-time={click_time}",
+			hold_time = self.hold_time,
+			click_time = self.click_time,
+		)?;
 
 		Ok(())
 	}
