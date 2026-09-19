@@ -42,10 +42,9 @@ use crate::{
 
 // Length of a tick.
 const SAMPLE_PERIOD_MS: u32 = 1;
-
 const SAMPLE_PERIOD: Duration = Duration::from_millis(SAMPLE_PERIOD_MS as u64);
 
-const DELAY_LENGTH: usize = 30;
+const DELAY_LENGTH: usize = 50;
 static DELAYED_PACKETS: StaticCell<DelayLine<ArrayVec<[u8; 4], 4>, DELAY_LENGTH>> =
 	StaticCell::new();
 
